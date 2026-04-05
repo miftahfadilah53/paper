@@ -32,6 +32,7 @@ controls.minDistance = 2;
 controls.maxDistance = 10;
 
 let tulangKiri = null;
+let tulangKanan = null;
 let modelBuku = null;
 let isBookOpen = false;
 let hideDescTimer;
@@ -42,7 +43,6 @@ const clickHint = document.getElementById("click-hint");
 
 function toggleDescription(show = true) {
   clearTimeout(hideDescTimer);
-
   if (show) {
     gsap.to(panelDesc, {
       height: "auto",
@@ -50,7 +50,6 @@ function toggleDescription(show = true) {
       duration: 0.5,
       ease: "back.out(1.2)",
     });
-
     hideDescTimer = setTimeout(() => toggleDescription(false), 4000);
   } else {
     gsap.to(panelDesc, {
@@ -69,22 +68,17 @@ function createHandwrittenTexture(text) {
   canvas.width = 1024;
   canvas.height = 1024;
   const ctx = canvas.getContext("2d");
-
   ctx.clearRect(0, 0, canvas.width, canvas.height);
-
   ctx.font = "48px 'Caveat', cursive";
   ctx.fillStyle = "#2c1810";
   ctx.textAlign = "left";
   ctx.textBaseline = "top";
-
   const padding = 80;
   const maxWidth = canvas.width - padding * 2;
   const words = text.split(" ");
-
   let line = "";
   let y = padding;
   const lineHeight = 55;
-
   words.forEach((word) => {
     const testLine = line + word + " ";
     if (ctx.measureText(testLine).width > maxWidth) {
@@ -95,9 +89,7 @@ function createHandwrittenTexture(text) {
       line = testLine;
     }
   });
-
   drawLine(ctx, line, padding, y);
-
   const texture = new THREE.CanvasTexture(canvas);
   texture.encoding = THREE.sRGBEncoding;
   return texture;
@@ -114,22 +106,8 @@ function drawLine(ctx, text, x, y) {
   ctx.restore();
 }
 
-function attachTextToPage(bone, modelBuku) {
-  modelBuku.position.set(-1.6, 0.5, 0.1);
-
+function attachTextToPage(bone, modelBuku, text, initial) {
   document.fonts.ready.then(() => {
-    const text = `1. Aplikasi metode-metode, teknik-teknik dan
-peralatan ilmiah dalam menghadapi masalah-
-masalah yang timbul di dalam operasi perusahaan
-dengan tujuan ditemukannya pemecahan yang
-optimum masalah-masalah tersebut, Teori dari?
-
-a. Morse
-b. Kimball
-c. Morse dan Kimball
-d. Churchman, Arkoff dan Arnoff
-e. Miller dan M.K. Star`;
-
     const texture = createHandwrittenTexture(text);
 
     let pageMesh = null;
@@ -149,7 +127,6 @@ e. Miller dan M.K. Star`;
     const planeH = size.z * 0.8;
 
     const geometry = new THREE.PlaneGeometry(planeW, planeH);
-
     const material = new THREE.MeshStandardMaterial({
       map: texture,
       transparent: true,
@@ -165,11 +142,10 @@ e. Miller dan M.K. Star`;
 
     const textPlane = new THREE.Mesh(geometry, material);
     textPlane.renderOrder = 999;
-
     bone.add(textPlane);
 
-    textPlane.position.set(-0.36, 1.1, 0);
-    textPlane.rotation.set(0, Math.PI, 1.6);
+    textPlane.position.set(initial.x, initial.y, initial.z);
+    textPlane.rotation.set(initial.rx, initial.ry, initial.rz);
   });
 }
 
@@ -178,24 +154,41 @@ loader.load("/assets/paperex.glb", function (gltf) {
   modelBuku = gltf.scene;
   scene.add(modelBuku);
 
-  tulangKiri =
-    modelBuku.getObjectByName("bone002") ||
-    modelBuku.getObjectByName("Bone002");
+  tulangKiri = modelBuku.getObjectByName("bone002") || modelBuku.getObjectByName("Bone002");
+  tulangKanan = modelBuku.getObjectByName("bone001") || modelBuku.getObjectByName("Bone001");
+
   if (tulangKiri) {
     tulangKiri.rotation.y = Math.PI * 0.99;
-    attachTextToPage(tulangKiri, modelBuku);
+    attachTextToPage(
+      tulangKiri,
+      modelBuku,
+      `1. Aplikasi metode-metode, teknik-teknik dan
+peralatan ilmiah dalam menghadapi masalah-
+masalah yang timbul di dalam operasi perusahaan
+dengan tujuan ditemukannya pemecahan yang
+optimum masalah-masalah tersebut, Teori dari?
+
+a. Morse
+b. Kimball
+c. Morse dan Kimball
+d. Churchman, Arkoff dan Arnoff
+e. Miller dan M.K. Star`,
+      { x: -0.36, y: 1.1, z: 0, rx: 0, ry: Math.PI, rz: 1.6 }
+    );
   }
 
-  modelBuku.position.set(-1, -3, -1);
+  if (tulangKanan) {
+    attachTextToPage(
+      tulangKanan,
+      modelBuku,
+      "Halo, Selamat Datang di Halaman Kanan!\nTulis apa pun di sini.",
+      { x: 1, y: 1, z: 0, rx: 0, ry: 0, rz: 1.6 }
+    );
+  }
+
+  modelBuku.position.set(-1.6, 0.5, 0.1);
   modelBuku.rotation.set(Math.PI / 4, 0, 0);
 
-  gsap.to(modelBuku.position, {
-    x: -1,
-    y: 0,
-    z: 0,
-    duration: 1.5,
-    ease: "power2.out",
-  });
   gsap.to(modelBuku.rotation, {
     x: Math.PI / 2,
     duration: 1.5,
@@ -237,7 +230,7 @@ window.addEventListener("pointerup", (e) => {
     });
 
     gsap.to(modelBuku.position, {
-      x: isBookOpen ? 0 : -1,
+      x: isBookOpen ? 0 : -1.6,
       duration: 1.2,
       ease: "expo.out",
     });
