@@ -96,14 +96,17 @@ ui.panelTitle.addEventListener("click", () => toggleDescription(true));
  * Pre-calculates the layout (line breaks and word positions) for a given text.
  * This ensures that word positions remain stable during the typewriter animation.
  */
-function calculateLayout(ctx, text, maxWidth, lineHeight, padding) {
+function calculateLayout(ctx, text, maxWidth, fontSize, padding) {
   const layout = { paragraphs: [] };
   const paragraphs = text.split("\n");
+  const lineHeight = fontSize * 1.2;
+
+  ctx.font = `${fontSize}px 'Caveat', cursive`;
 
   paragraphs.forEach((pText) => {
     const paragraph = { lines: [] };
     const words = pText.trim().split(/\s+/);
-    
+
     if (words.length === 0 || (words.length === 1 && words[0] === "")) {
       paragraph.isEmpty = true;
       layout.paragraphs.push(paragraph);
@@ -115,31 +118,43 @@ function calculateLayout(ctx, text, maxWidth, lineHeight, padding) {
       const wordWidth = ctx.measureText(word).width;
       const spaceWidth = ctx.measureText(" ").width;
 
-      if (currentLine.totalWordsWidth + wordWidth > maxWidth && currentLine.words.length > 0) {
+      if (
+        currentLine.totalWordsWidth + wordWidth > maxWidth &&
+        currentLine.words.length > 0
+      ) {
         paragraph.lines.push(currentLine);
         currentLine = { words: [], totalWordsWidth: 0 };
       }
-      
+
       currentLine.words.push({ text: word, width: wordWidth });
       currentLine.totalWordsWidth += wordWidth + spaceWidth;
     });
-    
+
     if (currentLine.words.length > 0) {
       paragraph.lines.push(currentLine);
     }
-    
+
     layout.paragraphs.push(paragraph);
   });
-  
-  return layout;
+
+  return { layout, lineHeight };
 }
 
 /**
  * Renders the pre-calculated layout up to a certain character progress.
  */
-function renderLayout(ctx, canvas, layout, progress, maxWidth, lineHeight, padding) {
+function renderLayout(
+  ctx,
+  canvas,
+  layout,
+  progress,
+  maxWidth,
+  fontSize,
+  lineHeight,
+  padding,
+) {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
-  ctx.font = "46px 'Caveat', cursive";
+  ctx.font = `${fontSize}px 'Caveat', cursive`;
   ctx.fillStyle = "#2c1810";
   ctx.textAlign = "left";
   ctx.textBaseline = "top";
@@ -173,7 +188,10 @@ function renderLayout(ctx, canvas, layout, progress, maxWidth, lineHeight, paddi
           const remainingChars = progress - charCount;
           if (remainingChars > 0) {
             const partialWord = word.text.slice(0, remainingChars);
-            visibleWords.push({ text: partialWord, width: ctx.measureText(partialWord).width });
+            visibleWords.push({
+              text: partialWord,
+              width: ctx.measureText(partialWord).width,
+            });
             lineText += partialWord;
             charCount += remainingChars;
           }
@@ -181,20 +199,27 @@ function renderLayout(ctx, canvas, layout, progress, maxWidth, lineHeight, paddi
         }
       }
 
-      const isLineComplete = visibleWords.length === line.words.length && 
-                             lineText.trim() === line.words.map(w => w.text).join(" ");
+      const isLineComplete =
+        visibleWords.length === line.words.length &&
+        lineText.trim() === line.words.map((w) => w.text).join(" ");
 
       // RENDER LOGIC:
       // Only justify if the line is FULLY complete AND it's not the last line of a paragraph.
       if (!isLastLineOfParagraph && isLineComplete) {
-        drawJustifiedLine(ctx, visibleWords.map(w => w.text), padding, currentY, maxWidth);
+        drawJustifiedLine(
+          ctx,
+          visibleWords.map((w) => w.text),
+          padding,
+          currentY,
+          maxWidth,
+        );
       } else {
         drawLeftLine(ctx, lineText, padding, currentY);
       }
 
       currentY += lineHeight;
     });
-    
+
     currentY += 10; // Paragraph spacing
   });
 }
@@ -230,12 +255,19 @@ function drawLeftLine(ctx, text, x, y) {
   ctx.restore();
 }
 
-function createTypewriterPage(bone, planeSize, text, initial, animateOnOpen = false) {
+function createTypewriterPage(
+  bone,
+  planeSize,
+  text,
+  initial,
+  animateOnOpen = false,
+  fontSize = 46,
+) {
   const canvas = document.createElement("canvas");
   canvas.width = 1024;
   canvas.height = 1024;
   const ctx = canvas.getContext("2d");
-  
+
   const texture = new THREE.CanvasTexture(canvas);
   texture.encoding = THREE.sRGBEncoding;
 
@@ -261,10 +293,14 @@ function createTypewriterPage(bone, planeSize, text, initial, animateOnOpen = fa
   // Layout Parameters
   const padding = 80;
   const maxWidth = canvas.width - padding * 2;
-  const lineHeight = 55;
 
-  ctx.font = "46px 'Caveat', cursive"; // Must set font before calculating layout
-  const layout = calculateLayout(ctx, text, maxWidth, lineHeight, padding);
+  const { layout, lineHeight } = calculateLayout(
+    ctx,
+    text,
+    maxWidth,
+    fontSize,
+    padding,
+  );
 
   const pageData = {
     texture,
@@ -272,6 +308,7 @@ function createTypewriterPage(bone, planeSize, text, initial, animateOnOpen = fa
     canvas,
     layout,
     maxWidth,
+    fontSize,
     lineHeight,
     padding,
     fullText: text,
@@ -282,7 +319,16 @@ function createTypewriterPage(bone, planeSize, text, initial, animateOnOpen = fa
   };
 
   if (!animateOnOpen) {
-    renderLayout(ctx, canvas, layout, text.length + 1000, maxWidth, lineHeight, padding);
+    renderLayout(
+      ctx,
+      canvas,
+      layout,
+      text.length + 1000,
+      maxWidth,
+      fontSize,
+      lineHeight,
+      padding,
+    );
     texture.needsUpdate = true;
   }
 
@@ -301,19 +347,20 @@ function startTypewriter(page) {
     ease: "none",
     onUpdate: () => {
       renderLayout(
-        page.ctx, 
-        page.canvas, 
-        page.layout, 
-        Math.floor(page.textObj.progress), 
-        page.maxWidth, 
-        page.lineHeight, 
-        page.padding
+        page.ctx,
+        page.canvas,
+        page.layout,
+        Math.floor(page.textObj.progress),
+        page.maxWidth,
+        page.fontSize,
+        page.lineHeight,
+        page.padding,
       );
       page.texture.needsUpdate = true;
     },
     onComplete: () => {
       page.isTyping = false;
-    }
+    },
   });
 }
 
@@ -347,27 +394,31 @@ new THREE.GLTFLoader().load(CONFIG.model.path, (gltf) => {
     const setup = [
       {
         bone: state.rightBone,
-        text: `1. Aplikasi metode-metode, teknik-teknik dan\nperalatan ilmiah dalam menghadapi masalah-\nmasalah yang timbul di dalam operasi perusahaan\ndengan tujuan ditemukannya pemecahan yang\noptimum masalah-masalah tersebut, Teori dari?\n\na. Morse\nb. Kimball\nc. Morse dan Kimball\nd. Churchman, Arkoff dan Arnoff\ne. Miller dan M.K. Star`,
+        text: `Halo, waktu itu kamu pernah ngasih aku kertas kann, sekarang aku bakal kasih kamu kertas yang lebih keren, yang ga akan kamu temuin dimanapun. Kertas apaan sih ini?? buka dong biar tauu. Pencet aja kertasnya`,
         initial: { x: -0.36, y: 1.1, z: 0, rx: 0, ry: Math.PI, rz: 1.6 },
         animateOnOpen: true,
+        fontSize: 70,
       },
       {
         bone: state.rightBone,
-        text: "HALO SELAMAT ULANG TAHUN",
+        text: "SELAMAT ULANG TAHUN YANG KE 22\nSITI MEGA UTAMA HENDRAWAN.\n\nSemoga panjang umur, sehat selalu, makin pinter, makin sukses, makin cantik, makin baik, makin segalanya deh pokoknya. Aamiin.",
         initial: { x: 0, y: 1, z: 0, rx: 0, ry: 0, rz: -1.6 },
         animateOnOpen: false,
+        fontSize: 60,
       },
       {
         bone: state.leftBone,
-        text: "Halo, Selamat Datang di Halaman Kanan!\n\nSilakan isi teks lain di sini untuk melihat perataan teks justify yang telah kita buat. Semua margin kanan dan kiri akan terlihat rapi dan sejajar satu sama lain.",
-        initial: { x: 1, y: 1, z: 0, rx: 0, ry: 0, rz: 1.6 },
-        animateOnOpen: true,
+        text: "Terima kasih sudah mau jadi temenku, partner in crimeku, temen curhatku, temen ngakakku, temen segalanya deh pokoknya. Aku seneng banget bisa kenal sama kamu, kamu orang yang baik, sabar, lucu, pinter, cantik, dan segalanya deh pokoknya. Aamiin.\n Jangan lupa baca halaman belakangnya wkkwwk",
+        initial: { x: 0.5, y: 1, z: 0, rx: 0, ry: 0, rz: 1.6 },
+        animateOnOpen: false,
+        fontSize: 50,
       },
       {
         bone: state.leftBone,
-        text: "Teks Sampul Belakang Kanan...",
+        text: "Yang Bikin:\nProgrammer ganteng dan intelek",
         initial: { x: 1, y: 0.9, z: 0, rx: 0, ry: Math.PI, rz: -1.6 },
         animateOnOpen: false,
+        fontSize: 80,
       },
     ];
 
@@ -375,7 +426,14 @@ new THREE.GLTFLoader().load(CONFIG.model.path, (gltf) => {
 
     setup.forEach((p) => {
       if (p.bone) {
-        createTypewriterPage(p.bone, planeSize, p.text, p.initial, p.animateOnOpen);
+        createTypewriterPage(
+          p.bone,
+          planeSize,
+          p.text,
+          p.initial,
+          p.animateOnOpen,
+          p.fontSize,
+        );
       }
     });
   });
@@ -404,7 +462,7 @@ new THREE.GLTFLoader().load(CONFIG.model.path, (gltf) => {
         state.pages.forEach((p) => {
           if (p.animateOnOpen) startTypewriter(p);
         });
-      }, 2000);
+      }, 1000);
     },
   });
 });
@@ -435,7 +493,7 @@ window.addEventListener("pointerup", (e) => {
 
   if (raycaster.intersectObject(state.model, true).length > 0) {
     if (state.isAnimating) return;
-    
+
     state.isBookOpen = !state.isBookOpen;
     state.isAnimating = true;
 
@@ -475,8 +533,8 @@ window.addEventListener("pointerup", (e) => {
     });
 
     ui.clickHint.innerHTML = state.isBookOpen
-      ? 'Klik buku untuk menutup <span style="font-size: 18px;">👉</span>'
-      : '<span style="font-size: 18px;">👆</span> Klik buku untuk membuka';
+      ? 'Klik buku untuk menutup <span style="font-size: 18px;"></span>'
+      : '<span style="font-size: 18px;"></span> Klik buku untuk membuka';
   }
 });
 
