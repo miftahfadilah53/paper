@@ -18,6 +18,7 @@ const CONFIG = {
     animDuration: 1.2,
     cameraAnimDuration: 1.5,
     typingSpeed: 0.03,
+    soundPath: "assets/paper-sound.mp3",
   },
 };
 
@@ -50,7 +51,7 @@ class UIController {
       });
       this.hideDescTimer = setTimeout(
         () => this.toggleDescription(false),
-        10000,
+        120000,
       );
     } else {
       gsap.to(this.panelDesc, {
@@ -60,6 +61,18 @@ class UIController {
         ease: "power2.inOut",
       });
     }
+  }
+}
+
+class SoundController {
+  constructor(path) {
+    this.audio = new Audio(path);
+    this.audio.preload = "auto";
+  }
+
+  play() {
+    this.audio.currentTime = 0;
+    this.audio.play().catch((e) => console.log("Audio play blocked:", e));
   }
 }
 
@@ -306,6 +319,7 @@ class ThreeApp {
 
     this.interactionCtx = { startX: 0, startY: 0 };
     this.ui = new UIController(() => this.resetView());
+    this.sound = new SoundController(CONFIG.interaction.soundPath);
     this.typewriter = new TypewriterRenderer(CONFIG.interaction.typingSpeed);
 
     this.initScene();
@@ -529,6 +543,7 @@ class ThreeApp {
 
         this.state.isBookOpen = !this.state.isBookOpen;
         this.state.isAnimating = true;
+        this.sound.play();
 
         if (this.state.isBookOpen) {
           const p2 = this.state.pages[1];
