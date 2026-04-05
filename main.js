@@ -50,7 +50,7 @@ class UIController {
       });
       this.hideDescTimer = setTimeout(
         () => this.toggleDescription(false),
-        4000,
+        10000,
       );
     } else {
       gsap.to(this.panelDesc, {
@@ -391,7 +391,7 @@ class ThreeApp {
             bone: this.state.rightBone,
             text: "18-04-2004\nSELAMAT ULANG TAHUN YANG KE 22\nSITI MEGA UTAMA HENDRAWAN.\nSemoga panjang umur, sehat selalu, makin pinter, makin sukses, makin cantik, pokoknya yang terbaik buat kamu. Aamiin.",
             initial: { x: 0.1, y: 1, z: 0, rx: 0, ry: 0, rz: -1.6 },
-            renderInstantly: true,
+            renderInstantly: false,
             autoStart: false,
             fontSize: 79,
           },
@@ -399,7 +399,7 @@ class ThreeApp {
             bone: this.state.leftBone,
             text: "Makasih ya udah jadi orang baik dihidup aku, aku seneng bisa kenal kamu, kamu orangnya baik, pinter. Aku masih bisa inget hal-hal kecil karena kamu salah satu orang yang masuk core memori aku, So you're special.\nJangan lupa baca halaman belakang ya hahaha (puter kanan)",
             initial: { x: -0.2, y: 1, z: 0, rx: 0, ry: 0, rz: 1.6 },
-            renderInstantly: true,
+            renderInstantly: false,
             autoStart: false,
             fontSize: 77,
           },
@@ -445,7 +445,6 @@ class ThreeApp {
         duration: CONFIG.interaction.cameraAnimDuration,
         ease: "power2.out",
         onComplete: () => {
-          this.ui.toggleDescription(true);
           setTimeout(() => {
             this.state.pages.forEach((p) => {
               if (p.autoStart) this.typewriter.start(p);
@@ -534,6 +533,8 @@ class ThreeApp {
         if (this.state.isBookOpen) {
           const p2 = this.state.pages[1];
           const p3 = this.state.pages[2];
+
+          this.ui.toggleDescription(true);
 
           setTimeout(() => {
             this.typewriter.start(p2, () => {

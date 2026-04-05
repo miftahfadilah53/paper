@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Kertas ....</title>
+    <title>Kertas Baginda</title>
     <link rel="stylesheet" href="style.css" />
 
     <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -15,41 +15,25 @@
   </head>
   <body>
     <main id="app-ui">
-    <div class="header-panel">
-      <div id="panel-title">Kertas ....</div>
-      <div id="panel-desc">
-        <div style="padding-top: 10px">
-          Kamu bisa buka atau tutup kertasnya dengan cara klik kertasnya. Bisa
-          zoom in/out diputer puter, pokoknya sama kayak galeri.
+      <div class="header-panel">
+        <div id="panel-title">Kertas Baginda</div>
+        <div id="panel-desc">
+          <div style="padding-top: 10px">
+            Kalau ga keliatan zoom dong, bayangin aja kayak galeri hp sendiri.
+            Kertasnya juga bisa diputer ke segala arah, cobain deh
+          </div>
         </div>
       </div>
-    </div>
 
-    <div id="ui-container">
-      <div id="reset-view" class="ui-button">
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          width="18"
-          height="18"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="2"
-          stroke-linecap="round"
-          stroke-linejoin="round"
-        >
-          <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
-          <path d="M3 3v5h5" />
-        </svg>
-        Balik Lagi
-      </div>
+      <div id="ui-container">
+        <div id="reset-view" class="ui-button">Balik Lagi</div>
       </div>
     </main>
 
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <script src="assets/js/three.min.js"></script>
+    <script src="assets/js/GLTFLoader.js"></script>
+    <script src="assets/js/gsap.min.js"></script>
+    <script src="assets/js/OrbitControls.js"></script>
     <script src="main.js"></script>
   </body>
 </html>
