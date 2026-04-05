@@ -145,10 +145,10 @@ function attachTextToPage(bone, planeSize, text, initial) {
     roughness: 1,
     metalness: 0,
     side: THREE.FrontSide,
-    depthWrite: true,
+    depthWrite: false,
     polygonOffset: true,
-    polygonOffsetFactor: -20,
-    polygonOffsetUnits: -20,
+    polygonOffsetFactor: -1,
+    polygonOffsetUnits: -1,
   });
 
   const textPlane = new THREE.Mesh(geometry, material);
