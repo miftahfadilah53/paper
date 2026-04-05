@@ -24,6 +24,7 @@ const CONFIG = {
 // --- Application State ---
 const state = {
   isBookOpen: false,
+  isAnimating: false,
   model: null,
   rightBone: null,
   leftBone: null,
@@ -267,7 +268,10 @@ window.addEventListener("pointerup", (e) => {
   raycaster.setFromCamera(mouse, camera);
 
   if (raycaster.intersectObject(state.model, true).length > 0) {
+    if (state.isAnimating) return; // Prevent spam clicks
+    
     state.isBookOpen = !state.isBookOpen;
+    state.isAnimating = true;
 
     // Animate Book Opening/Closing
     gsap.to(state.rightBone.rotation, {
@@ -301,6 +305,9 @@ window.addEventListener("pointerup", (e) => {
       z: 0,
       duration: CONFIG.interaction.cameraAnimDuration,
       ease: "expo.out",
+      onComplete: () => {
+        state.isAnimating = false; // Allow clicks again once animation is done
+      },
     });
 
     // Update UI
