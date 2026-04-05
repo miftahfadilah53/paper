@@ -135,13 +135,13 @@ function attachTextToPage(bone, modelBuku, text, initial) {
       side: THREE.FrontSide,
     });
 
-    material.depthWrite = false;
+    material.depthWrite = true;
     material.polygonOffset = true;
-    material.polygonOffsetFactor = -4;
-    material.polygonOffsetUnits = -4;
+    material.polygonOffsetFactor = -20;
+    material.polygonOffsetUnits = -20;
 
     const textPlane = new THREE.Mesh(geometry, material);
-    textPlane.renderOrder = 999;
+    textPlane.renderOrder = 1000;
     bone.add(textPlane);
 
     textPlane.position.set(initial.x, initial.y, initial.z);
@@ -154,11 +154,16 @@ loader.load("/assets/paperex.glb", function (gltf) {
   modelBuku = gltf.scene;
   scene.add(modelBuku);
 
-  tulangKiri = modelBuku.getObjectByName("bone002") || modelBuku.getObjectByName("Bone002");
-  tulangKanan = modelBuku.getObjectByName("bone001") || modelBuku.getObjectByName("Bone001");
+  tulangKiri =
+    modelBuku.getObjectByName("bone002") ||
+    modelBuku.getObjectByName("Bone002");
+  tulangKanan =
+    modelBuku.getObjectByName("bone001") ||
+    modelBuku.getObjectByName("Bone001");
 
   if (tulangKiri) {
     tulangKiri.rotation.y = Math.PI * 0.99;
+
     attachTextToPage(
       tulangKiri,
       modelBuku,
@@ -173,8 +178,17 @@ b. Kimball
 c. Morse dan Kimball
 d. Churchman, Arkoff dan Arnoff
 e. Miller dan M.K. Star`,
-      { x: -0.36, y: 1.1, z: 0, rx: 0, ry: Math.PI, rz: 1.6 }
+      { x: -0.36, y: 1.1, z: 0, rx: 0, ry: Math.PI, rz: 1.6 },
     );
+
+    attachTextToPage(tulangKiri, modelBuku, "Halo, Selamat Ulang Tahun", {
+      x: 0,
+      y: 1,
+      z: 0,
+      rx: 0,
+      ry: 0,
+      rz: -1.6,
+    });
   }
 
   if (tulangKanan) {
@@ -182,11 +196,20 @@ e. Miller dan M.K. Star`,
       tulangKanan,
       modelBuku,
       "Halo, Selamat Datang di Halaman Kanan!\nTulis apa pun di sini.",
-      { x: 1, y: 1, z: 0, rx: 0, ry: 0, rz: 1.6 }
+      { x: 1, y: 1, z: 0, rx: 0, ry: 0, rz: 1.6 },
     );
+
+    attachTextToPage(tulangKanan, modelBuku, "Teks Sampul Belakang Kanan...", {
+      x: 1,
+      y: 0.9,
+      z: 0,
+      rx: 0,
+      ry: Math.PI,
+      rz: -1.6,
+    });
   }
 
-  modelBuku.position.set(-1.6, 0.5, 0.1);
+  modelBuku.position.set(-1, 0.2, 0.1);
   modelBuku.rotation.set(Math.PI / 4, 0, 0);
 
   gsap.to(modelBuku.rotation, {
@@ -222,23 +245,19 @@ window.addEventListener("pointerup", (e) => {
 
   if (intersects.length > 0) {
     isBookOpen = !isBookOpen;
-
     gsap.to(tulangKiri.rotation, {
       y: isBookOpen ? 0 : Math.PI * 0.99,
       duration: 1.2,
       ease: "expo.out",
     });
-
     gsap.to(modelBuku.position, {
-      x: isBookOpen ? 0 : -1.6,
+      x: isBookOpen ? 0 : -1,
       duration: 1.2,
       ease: "expo.out",
     });
-
     const currentZ = getCameraZ();
     const zoomOffset = window.innerWidth <= 600 ? 3.5 : 0.5;
     const targetZ = isBookOpen ? currentZ + zoomOffset : currentZ;
-
     gsap.to(camera.position, {
       x: 0,
       y: 0,
@@ -246,7 +265,6 @@ window.addEventListener("pointerup", (e) => {
       duration: 1.5,
       ease: "expo.out",
     });
-
     gsap.to(controls.target, {
       x: 0,
       y: 0,
@@ -254,7 +272,6 @@ window.addEventListener("pointerup", (e) => {
       duration: 1.5,
       ease: "expo.out",
     });
-
     clickHint.innerHTML = isBookOpen
       ? 'Klik buku untuk menutup <span style="font-size: 18px;">👉</span>'
       : '<span style="font-size: 18px;">👆</span> Klik buku untuk membuka';
