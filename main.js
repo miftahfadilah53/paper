@@ -21,520 +21,406 @@ const CONFIG = {
   },
 };
 
-const state = {
-  isBookOpen: false,
-  isAnimating: false,
-  model: null,
-  rightBone: null,
-  leftBone: null,
-  pages: [],
-};
+class UIController {
+  constructor(onResetCallback) {
+    this.panelTitle = document.getElementById("panel-title");
+    this.panelDesc = document.getElementById("panel-desc");
+    this.resetBtn = document.getElementById("reset-view");
+    this.hideDescTimer = null;
+    this.fadeDuration = CONFIG.interaction.fadeDuration;
 
-const scene = new THREE.Scene();
-
-const camera = new THREE.PerspectiveCamera(
-  CONFIG.camera.fov,
-  window.innerWidth / window.innerHeight,
-  CONFIG.camera.near,
-  CONFIG.camera.far,
-);
-camera.position.set(0, 0, CONFIG.camera.getZ());
-
-const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
-renderer.setSize(window.innerWidth, window.innerHeight);
-renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-renderer.outputEncoding = THREE.sRGBEncoding;
-document.body.appendChild(renderer.domElement);
-
-scene.add(new THREE.AmbientLight(0xffffff, 0.7));
-const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
-dirLight.position.set(5, 5, 5);
-scene.add(dirLight);
-
-const controls = new THREE.OrbitControls(camera, renderer.domElement);
-controls.enableDamping = true;
-controls.enablePan = true;
-controls.minDistance = 2;
-controls.maxDistance = 10;
-
-const ui = {
-  panelTitle: document.getElementById("panel-title"),
-  panelDesc: document.getElementById("panel-desc"),
-  resetBtn: document.getElementById("reset-view"),
-  hideDescTimer: null,
-};
-
-const resetView = () => {
-  if (state.isAnimating || !state.model || !state.rightBone) return;
-  state.isAnimating = true;
-
-  const targetPosX = state.isBookOpen
-    ? CONFIG.model.openOffset
-    : CONFIG.model.closedOffset;
-  const targetZ =
-    CONFIG.camera.getZ() + (state.isBookOpen ? CONFIG.camera.zoomOffset() : 0);
-  const targetBoneY = state.isBookOpen ? 0 : Math.PI * 0.99;
-
-  gsap.to(camera.position, {
-    x: 0,
-    y: 0,
-    z: targetZ,
-    duration: CONFIG.interaction.cameraAnimDuration,
-    ease: "expo.out",
-  });
-
-  gsap.to(state.rightBone.rotation, {
-    y: targetBoneY,
-    duration: CONFIG.interaction.animDuration,
-    ease: "expo.out",
-  });
-
-  gsap.to(state.model.position, {
-    x: targetPosX,
-    duration: CONFIG.interaction.animDuration,
-    ease: "expo.out",
-  });
-
-  gsap.to(controls.target, {
-    x: 0,
-    y: 0,
-    z: 0,
-    duration: CONFIG.interaction.cameraAnimDuration,
-    ease: "expo.out",
-    onComplete: () => {
-      state.isAnimating = false;
-      controls.update();
-    },
-  });
-};
-
-ui.resetBtn.addEventListener("click", (e) => {
-  e.stopPropagation();
-  resetView();
-});
-
-const toggleDescription = (show = true) => {
-  clearTimeout(ui.hideDescTimer);
-  if (show) {
-    gsap.to(ui.panelDesc, {
-      height: "auto",
-      opacity: 1,
-      duration: CONFIG.interaction.fadeDuration,
-      ease: "back.out(1.2)",
+    this.resetBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      onResetCallback();
     });
-    ui.hideDescTimer = setTimeout(() => toggleDescription(false), 4000);
-  } else {
-    gsap.to(ui.panelDesc, {
-      height: 0,
-      opacity: 0,
-      duration: CONFIG.interaction.fadeDuration,
-      ease: "power2.inOut",
+
+    this.panelTitle.addEventListener("click", () => this.toggleDescription(true));
+  }
+
+  toggleDescription(show = true) {
+    clearTimeout(this.hideDescTimer);
+    if (show) {
+      gsap.to(this.panelDesc, {
+        height: "auto",
+        opacity: 1,
+        duration: this.fadeDuration,
+        ease: "back.out(1.2)",
+      });
+      this.hideDescTimer = setTimeout(() => this.toggleDescription(false), 4000);
+    } else {
+      gsap.to(this.panelDesc, {
+        height: 0,
+        opacity: 0,
+        duration: this.fadeDuration,
+        ease: "power2.inOut",
+      });
+    }
+  }
+}
+
+class TypewriterRenderer {
+  constructor(speed) {
+    this.typingSpeed = speed;
+  }
+
+  calculateLayout(ctx, text, maxWidth, fontSize, padding) {
+    const layout = { paragraphs: [] };
+    const paragraphs = text.split("\n");
+    const lineHeight = fontSize * 1.2;
+    ctx.font = `${fontSize}px 'Caveat', cursive`;
+
+    paragraphs.forEach((pText) => {
+      const paragraph = { lines: [] };
+      const words = pText.trim().split(/\s+/);
+      if (words.length === 0 || (words.length === 1 && words[0] === "")) {
+        paragraph.isEmpty = true;
+        layout.paragraphs.push(paragraph);
+        return;
+      }
+
+      let currentLine = { words: [], totalWordsWidth: 0 };
+      words.forEach((word) => {
+        const wordWidth = ctx.measureText(word).width;
+        const spaceWidth = ctx.measureText(" ").width;
+
+        if (currentLine.totalWordsWidth + wordWidth > maxWidth && currentLine.words.length > 0) {
+          paragraph.lines.push(currentLine);
+          currentLine = { words: [], totalWordsWidth: 0 };
+        }
+
+        currentLine.words.push({ text: word, width: wordWidth });
+        currentLine.totalWordsWidth += wordWidth + spaceWidth;
+      });
+
+      if (currentLine.words.length > 0) paragraph.lines.push(currentLine);
+      layout.paragraphs.push(paragraph);
+    });
+
+    return { layout, lineHeight };
+  }
+
+  renderLayout(ctx, canvas, layout, progress, maxWidth, fontSize, lineHeight, padding) {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.font = `${fontSize}px 'Caveat', cursive`;
+    ctx.fillStyle = "#2c1810";
+    ctx.textAlign = "left";
+    ctx.textBaseline = "top";
+
+    let currentY = padding;
+    let charCount = 0;
+
+    layout.paragraphs.forEach((paragraph) => {
+      if (paragraph.isEmpty) {
+        currentY += lineHeight / 2;
+        return;
+      }
+
+      paragraph.lines.forEach((line, lineIndex) => {
+        if (charCount >= progress) return;
+
+        const isLastLineOfParagraph = lineIndex === paragraph.lines.length - 1;
+        let lineText = "";
+        let visibleWords = [];
+
+        for (let word of line.words) {
+          const wordPlusSpace = word.text + " ";
+          if (charCount + wordPlusSpace.length <= progress) {
+            visibleWords.push(word);
+            lineText += wordPlusSpace;
+            charCount += wordPlusSpace.length;
+          } else {
+            const remainingChars = progress - charCount;
+            if (remainingChars > 0) {
+              const partialWord = word.text.slice(0, remainingChars);
+              visibleWords.push({ text: partialWord, width: ctx.measureText(partialWord).width });
+              lineText += partialWord;
+              charCount += remainingChars;
+            }
+            break;
+          }
+        }
+
+        const isLineComplete =
+          visibleWords.length === line.words.length &&
+          lineText.trim() === line.words.map((w) => w.text).join(" ");
+
+        if (!isLastLineOfParagraph && isLineComplete) {
+          this.drawJustifiedLine(ctx, visibleWords.map((w) => w.text), padding, currentY, maxWidth);
+        } else {
+          this.drawLeftLine(ctx, lineText, padding, currentY);
+        }
+
+        currentY += lineHeight;
+      });
+
+      currentY += 10;
     });
   }
-};
 
-ui.panelTitle.addEventListener("click", () => toggleDescription(true));
-
-function calculateLayout(ctx, text, maxWidth, fontSize, padding) {
-  const layout = { paragraphs: [] };
-  const paragraphs = text.split("\n");
-  const lineHeight = fontSize * 1.2;
-
-  ctx.font = `${fontSize}px 'Caveat', cursive`;
-
-  paragraphs.forEach((pText) => {
-    const paragraph = { lines: [] };
-    const words = pText.trim().split(/\s+/);
-
-    if (words.length === 0 || (words.length === 1 && words[0] === "")) {
-      paragraph.isEmpty = true;
-      layout.paragraphs.push(paragraph);
-      return;
-    }
-
-    let currentLine = { words: [], totalWordsWidth: 0 };
+  drawJustifiedLine(ctx, words, x, y, maxWidth) {
+    let totalWordsWidth = 0;
     words.forEach((word) => {
-      const wordWidth = ctx.measureText(word).width;
-      const spaceWidth = ctx.measureText(" ").width;
-
-      if (
-        currentLine.totalWordsWidth + wordWidth > maxWidth &&
-        currentLine.words.length > 0
-      ) {
-        paragraph.lines.push(currentLine);
-        currentLine = { words: [], totalWordsWidth: 0 };
-      }
-
-      currentLine.words.push({ text: word, width: wordWidth });
-      currentLine.totalWordsWidth += wordWidth + spaceWidth;
+      totalWordsWidth += ctx.measureText(word).width;
     });
 
-    if (currentLine.words.length > 0) {
-      paragraph.lines.push(currentLine);
-    }
+    const totalSpaceWidth = maxWidth - totalWordsWidth;
+    const spacing = words.length > 1 ? totalSpaceWidth / (words.length - 1) : 0;
 
-    layout.paragraphs.push(paragraph);
-  });
+    let currentX = x;
+    ctx.save();
+    ctx.globalAlpha = 0.95;
+    ctx.shadowColor = "rgba(0,0,0,0.15)";
+    ctx.shadowBlur = 1;
 
-  return { layout, lineHeight };
-}
+    words.forEach((word) => {
+      ctx.fillText(word, currentX, y);
+      currentX += ctx.measureText(word).width + spacing;
+    });
+    ctx.restore();
+  }
 
-function renderLayout(
-  ctx,
-  canvas,
-  layout,
-  progress,
-  maxWidth,
-  fontSize,
-  lineHeight,
-  padding,
-) {
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
-  ctx.font = `${fontSize}px 'Caveat', cursive`;
-  ctx.fillStyle = "#2c1810";
-  ctx.textAlign = "left";
-  ctx.textBaseline = "top";
+  drawLeftLine(ctx, text, x, y) {
+    ctx.save();
+    ctx.globalAlpha = 0.95;
+    ctx.shadowColor = "rgba(0,0,0,0.15)";
+    ctx.shadowBlur = 1;
+    ctx.fillText(text, x, y);
+    ctx.restore();
+  }
 
-  let currentY = padding;
-  let charCount = 0;
+  createPage(bone, sharedGeometry, text, initial, animateOnOpen, fontSize, pagesState) {
+    const canvas = document.createElement("canvas");
+    canvas.width = 1024;
+    canvas.height = 1024;
+    const ctx = canvas.getContext("2d");
 
-  layout.paragraphs.forEach((paragraph) => {
-    if (paragraph.isEmpty) {
-      currentY += lineHeight / 2;
-      return;
-    }
-
-    paragraph.lines.forEach((line, lineIndex) => {
-      if (charCount >= progress) return;
-
-      const isLastLineOfParagraph = lineIndex === paragraph.lines.length - 1;
-      let lineText = "";
-      let visibleWords = [];
-
-      for (let word of line.words) {
-        const wordPlusSpace = word.text + " ";
-        if (charCount + wordPlusSpace.length <= progress) {
-          visibleWords.push(word);
-          lineText += wordPlusSpace;
-          charCount += wordPlusSpace.length;
-        } else {
-          const remainingChars = progress - charCount;
-          if (remainingChars > 0) {
-            const partialWord = word.text.slice(0, remainingChars);
-            visibleWords.push({
-              text: partialWord,
-              width: ctx.measureText(partialWord).width,
-            });
-            lineText += partialWord;
-            charCount += remainingChars;
-          }
-          break;
-        }
-      }
-
-      const isLineComplete =
-        visibleWords.length === line.words.length &&
-        lineText.trim() === line.words.map((w) => w.text).join(" ");
-
-      if (!isLastLineOfParagraph && isLineComplete) {
-        drawJustifiedLine(
-          ctx,
-          visibleWords.map((w) => w.text),
-          padding,
-          currentY,
-          maxWidth,
-        );
-      } else {
-        drawLeftLine(ctx, lineText, padding, currentY);
-      }
-
-      currentY += lineHeight;
+    const texture = new THREE.CanvasTexture(canvas);
+    texture.encoding = THREE.sRGBEncoding;
+    const material = new THREE.MeshStandardMaterial({
+      map: texture,
+      transparent: true,
+      roughness: 1,
+      metalness: 0,
+      side: THREE.FrontSide,
+      depthWrite: false,
+      polygonOffset: true,
+      polygonOffsetFactor: -1,
+      polygonOffsetUnits: -1,
     });
 
-    currentY += 10;
-  });
-}
+    const textPlane = new THREE.Mesh(sharedGeometry, material);
+    textPlane.renderOrder = 1000;
+    textPlane.position.set(initial.x, initial.y, initial.z);
+    textPlane.rotation.set(initial.rx, initial.ry, initial.rz);
+    bone.add(textPlane);
 
-function drawJustifiedLine(ctx, words, x, y, maxWidth) {
-  let totalWordsWidth = 0;
-  words.forEach((word) => {
-    totalWordsWidth += ctx.measureText(word).width;
-  });
+    const padding = 80;
+    const maxWidth = canvas.width - padding * 2;
+    const { layout, lineHeight } = this.calculateLayout(ctx, text, maxWidth, fontSize, padding);
 
-  const totalSpaceWidth = maxWidth - totalWordsWidth;
-  const spacing = words.length > 1 ? totalSpaceWidth / (words.length - 1) : 0;
-
-  let currentX = x;
-  ctx.save();
-  ctx.globalAlpha = 0.95;
-  ctx.shadowColor = "rgba(0,0,0,0.15)";
-  ctx.shadowBlur = 1;
-
-  words.forEach((word) => {
-    ctx.fillText(word, currentX, y);
-    currentX += ctx.measureText(word).width + spacing;
-  });
-  ctx.restore();
-}
-
-function drawLeftLine(ctx, text, x, y) {
-  ctx.save();
-  ctx.globalAlpha = 0.95;
-  ctx.shadowColor = "rgba(0,0,0,0.15)";
-  ctx.shadowBlur = 1;
-  ctx.fillText(text, x, y);
-  ctx.restore();
-}
-
-function createTypewriterPage(
-  bone,
-  planeSize,
-  text,
-  initial,
-  animateOnOpen = false,
-  fontSize = 46,
-) {
-  const canvas = document.createElement("canvas");
-  canvas.width = 1024;
-  canvas.height = 1024;
-  const ctx = canvas.getContext("2d");
-
-  const texture = new THREE.CanvasTexture(canvas);
-  texture.encoding = THREE.sRGBEncoding;
-
-  const geometry = new THREE.PlaneGeometry(planeSize.width, planeSize.height);
-  const material = new THREE.MeshStandardMaterial({
-    map: texture,
-    transparent: true,
-    roughness: 1,
-    metalness: 0,
-    side: THREE.FrontSide,
-    depthWrite: false,
-    polygonOffset: true,
-    polygonOffsetFactor: -1,
-    polygonOffsetUnits: -1,
-  });
-
-  const textPlane = new THREE.Mesh(geometry, material);
-  textPlane.renderOrder = 1000;
-  textPlane.position.set(initial.x, initial.y, initial.z);
-  textPlane.rotation.set(initial.rx, initial.ry, initial.rz);
-  bone.add(textPlane);
-
-  const padding = 80;
-  const maxWidth = canvas.width - padding * 2;
-
-  const { layout, lineHeight } = calculateLayout(
-    ctx,
-    text,
-    maxWidth,
-    fontSize,
-    padding,
-  );
-
-  const pageData = {
-    texture,
-    ctx,
-    canvas,
-    layout,
-    maxWidth,
-    fontSize,
-    lineHeight,
-    padding,
-    fullText: text,
-    animateOnOpen,
-    isTyping: false,
-    hasRun: false,
-    textObj: { progress: 0 },
-  };
-
-  if (!animateOnOpen) {
-    renderLayout(
+    const pageData = {
+      texture,
       ctx,
       canvas,
       layout,
-      text.length + 1000,
       maxWidth,
       fontSize,
       lineHeight,
       padding,
-    );
-    texture.needsUpdate = true;
+      fullText: text,
+      animateOnOpen,
+      isTyping: false,
+      hasRun: false,
+      textObj: { progress: 0 },
+    };
+
+    if (!animateOnOpen) {
+      this.renderLayout(ctx, canvas, layout, text.length + 1000, maxWidth, fontSize, lineHeight, padding);
+      texture.needsUpdate = true;
+    }
+
+    pagesState.push(pageData);
   }
 
-  state.pages.push(pageData);
-}
+  start(page) {
+    if (page.isTyping || page.hasRun) return;
+    page.isTyping = true;
+    page.hasRun = true;
+    page.textObj.progress = 0;
 
-function startTypewriter(page) {
-  if (page.isTyping || page.hasRun) return;
-  page.isTyping = true;
-  page.hasRun = true;
-  page.textObj.progress = 0;
+    let lastProgress = -1;
 
-  gsap.to(page.textObj, {
-    progress: page.fullText.length,
-    duration: page.fullText.length * CONFIG.interaction.typingSpeed,
-    ease: "none",
-    onUpdate: () => {
-      renderLayout(
-        page.ctx,
-        page.canvas,
-        page.layout,
-        Math.floor(page.textObj.progress),
-        page.maxWidth,
-        page.fontSize,
-        page.lineHeight,
-        page.padding,
-      );
-      page.texture.needsUpdate = true;
-    },
-    onComplete: () => {
-      page.isTyping = false;
-    },
-  });
-}
-
-new THREE.GLTFLoader().load(CONFIG.model.path, (gltf) => {
-  state.model = gltf.scene;
-  scene.add(state.model);
-
-  state.rightBone =
-    state.model.getObjectByName("bone002") ||
-    state.model.getObjectByName("Bone002");
-  state.leftBone =
-    state.model.getObjectByName("bone001") ||
-    state.model.getObjectByName("Bone001");
-
-  let pageMesh = null;
-  state.model.traverse((child) => {
-    if (child.isSkinnedMesh && child.name === "Plane001") {
-      pageMesh = child;
-    }
-  });
-
-  document.fonts.ready.then(() => {
-    if (!pageMesh) return;
-
-    pageMesh.geometry.computeBoundingBox();
-    const size = new THREE.Vector3();
-    pageMesh.geometry.boundingBox.getSize(size);
-    const planeSize = { width: size.x * 0.45, height: size.z * 0.8 };
-
-    const setup = [
-      {
-        bone: state.rightBone,
-        text: `Halo, waktu itu kamu pernah ngasih aku kertas kann, sekarang aku bakal kasih kamu kertas yang lebih keren, yang ga akan kamu temuin dimanapun. Kertas apaan sih ini?? buka dong biar tauu. Pencet aja kertasnya`,
-        initial: { x: -0.36, y: 1.1, z: 0, rx: 0, ry: Math.PI, rz: 1.6 },
-        animateOnOpen: true,
-        fontSize: 70,
+    gsap.to(page.textObj, {
+      progress: page.fullText.length,
+      duration: page.fullText.length * this.typingSpeed,
+      ease: "none",
+      onUpdate: () => {
+        const currentProgress = Math.floor(page.textObj.progress);
+        if (currentProgress !== lastProgress) {
+          lastProgress = currentProgress;
+          this.renderLayout(
+            page.ctx,
+            page.canvas,
+            page.layout,
+            currentProgress,
+            page.maxWidth,
+            page.fontSize,
+            page.lineHeight,
+            page.padding,
+          );
+          page.texture.needsUpdate = true;
+        }
       },
-      {
-        bone: state.rightBone,
-        text: "18-04-2004\nSELAMAT ULANG TAHUN YANG KE 22\nSITI MEGA UTAMA HENDRAWAN.\n\nSemoga panjang umur, sehat selalu, makin pinter, makin sukses, makin cantik, pokoknya yang terbaik buat kamu. Aamiin.",
-        initial: { x: 0, y: 1, z: 0, rx: 0, ry: 0, rz: -1.6 },
-        animateOnOpen: false,
-        fontSize: 75,
+      onComplete: () => {
+        page.isTyping = false;
       },
-      {
-        bone: state.leftBone,
-        text: "Makasih ya udah jadi orang baik dihidup aku, aku seneng bisa kenal kamu, kamu orangnya baik, pinter. Aku masih bisa inget hal-hal kecil karena kamu salah satu orang yang masuk core memori aku, So you're special.\nJangan lupa baca halaman belakang ya hahaha",
-        initial: { x: 0.05, y: 1, z: 0, rx: 0, ry: 0, rz: 1.6 },
-        animateOnOpen: false,
-        fontSize: 75,
-      },
-      {
-        bone: state.leftBone,
-        text: "Yang Buat:\nProgrammer ganteng dan intelek",
-        initial: { x: 0.5, y: 1, z: 0, rx: 0, ry: Math.PI, rz: -1.6 },
-        animateOnOpen: false,
-        fontSize: 80,
-      },
-    ];
-
-    if (state.rightBone) state.rightBone.rotation.y = Math.PI * 0.99;
-
-    setup.forEach((p) => {
-      if (p.bone) {
-        createTypewriterPage(
-          p.bone,
-          planeSize,
-          p.text,
-          p.initial,
-          p.animateOnOpen,
-          p.fontSize,
-        );
-      }
     });
-  });
+  }
+}
 
-  state.model.position.set(
-    CONFIG.model.initialPos.x,
-    CONFIG.model.initialPos.y,
-    CONFIG.model.initialPos.z,
-  );
-  state.model.rotation.set(Math.PI / 4, 0, 0);
+class ThreeApp {
+  constructor() {
+    this.state = {
+      isBookOpen: false,
+      isAnimating: false,
+      model: null,
+      rightBone: null,
+      leftBone: null,
+      pages: [],
+    };
+    
+    this.interactionCtx = { startX: 0, startY: 0 };
+    this.ui = new UIController(() => this.resetView());
+    this.typewriter = new TypewriterRenderer(CONFIG.interaction.typingSpeed);
 
-  gsap.to(state.model.rotation, {
-    x: Math.PI / 2,
-    duration: CONFIG.interaction.cameraAnimDuration,
-    ease: "power2.out",
-    onComplete: () => {
-      toggleDescription(true);
-      setTimeout(() => {
-        state.pages.forEach((p) => {
-          if (p.animateOnOpen) startTypewriter(p);
+    this.initScene();
+    this.loadModel();
+    this.setupInteractions();
+    
+    this.animate = this.animate.bind(this);
+    this.animate();
+  }
+
+  initScene() {
+    this.scene = new THREE.Scene();
+
+    this.camera = new THREE.PerspectiveCamera(
+      CONFIG.camera.fov,
+      window.innerWidth / window.innerHeight,
+      CONFIG.camera.near,
+      CONFIG.camera.far,
+    );
+    this.camera.position.set(0, 0, CONFIG.camera.getZ());
+
+    this.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+    this.renderer.setSize(window.innerWidth, window.innerHeight);
+    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    this.renderer.outputEncoding = THREE.sRGBEncoding;
+    document.body.appendChild(this.renderer.domElement);
+
+    this.scene.add(new THREE.AmbientLight(0xffffff, 0.7));
+    const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
+    dirLight.position.set(5, 5, 5);
+    this.scene.add(dirLight);
+
+    this.controls = new THREE.OrbitControls(this.camera, this.renderer.domElement);
+    this.controls.enableDamping = true;
+    this.controls.enablePan = true;
+    this.controls.minDistance = 2;
+    this.controls.maxDistance = 10;
+  }
+
+  loadModel() {
+    new THREE.GLTFLoader().load(CONFIG.model.path, (gltf) => {
+      this.state.model = gltf.scene;
+      this.scene.add(this.state.model);
+
+      this.state.rightBone = this.state.model.getObjectByName("bone002") || this.state.model.getObjectByName("Bone002");
+      this.state.leftBone = this.state.model.getObjectByName("bone001") || this.state.model.getObjectByName("Bone001");
+
+      let pageMesh = null;
+      this.state.model.traverse((child) => {
+        if (child.isSkinnedMesh && child.name === "Plane001") {
+          pageMesh = child;
+        }
+      });
+
+      document.fonts.ready.then(() => {
+        if (!pageMesh) return;
+
+        pageMesh.geometry.computeBoundingBox();
+        const size = new THREE.Vector3();
+        pageMesh.geometry.boundingBox.getSize(size);
+        const sharedGeometry = new THREE.PlaneGeometry(size.x * 0.45, size.z * 0.8);
+
+        const setup = [
+          {
+            bone: this.state.rightBone,
+            text: `Halo, waktu itu kamu pernah ngasih aku kertas kann, sekarang aku bakal kasih kamu kertas yang lebih keren, yang ga akan kamu temuin dimanapun. Kertas apaan sih ini?? buka dong biar tauu. Pencet aja kertasnya`,
+            initial: { x: -0.36, y: 1.1, z: 0, rx: 0, ry: Math.PI, rz: 1.6 },
+            animateOnOpen: true,
+            fontSize: 70,
+          },
+          {
+            bone: this.state.rightBone,
+            text: "18-04-2004\nSELAMAT ULANG TAHUN YANG KE 22\nSITI MEGA UTAMA HENDRAWAN.\n\nSemoga panjang umur, sehat selalu, makin pinter, makin sukses, makin cantik, pokoknya yang terbaik buat kamu. Aamiin.",
+            initial: { x: 0, y: 1, z: 0, rx: 0, ry: 0, rz: -1.6 },
+            animateOnOpen: true,
+            fontSize: 75,
+          },
+          {
+            bone: this.state.leftBone,
+            text: "Makasih ya udah jadi orang baik dihidup aku, aku seneng bisa kenal kamu, kamu orangnya baik, pinter. Aku masih bisa inget hal-hal kecil karena kamu salah satu orang yang masuk core memori aku, So you're special.\nJangan lupa baca halaman belakang ya hahaha",
+            initial: { x: 0.05, y: 1, z: 0, rx: 0, ry: 0, rz: 1.6 },
+            animateOnOpen: true,
+            fontSize: 75,
+          },
+          {
+            bone: this.state.leftBone,
+            text: "Yang Buat:\nProgrammer ganteng dan intelek",
+            initial: { x: 0.5, y: 1, z: 0, rx: 0, ry: Math.PI, rz: -1.6 },
+            animateOnOpen: false,
+            fontSize: 80,
+          },
+        ];
+
+        if (this.state.rightBone) this.state.rightBone.rotation.y = Math.PI * 0.99;
+
+        setup.forEach((p) => {
+          if (p.bone) {
+            this.typewriter.createPage(p.bone, sharedGeometry, p.text, p.initial, p.animateOnOpen, p.fontSize, this.state.pages);
+          }
         });
-      }, 1000);
-    },
-  });
-});
+      });
 
-const interactionCtx = { startX: 0, startY: 0 };
-window.addEventListener("pointerdown", (e) => {
-  interactionCtx.startX = e.clientX;
-  interactionCtx.startY = e.clientY;
-});
+      this.state.model.position.set(CONFIG.model.initialPos.x, CONFIG.model.initialPos.y, CONFIG.model.initialPos.z);
+      this.state.model.rotation.set(Math.PI / 4, 0, 0);
 
-window.addEventListener("pointerup", (e) => {
-  if (!state.model || !state.rightBone) return;
-
-  const dist = Math.hypot(
-    e.clientX - interactionCtx.startX,
-    e.clientY - interactionCtx.startY,
-  );
-  if (dist > CONFIG.interaction.clickTolerance) return;
-
-  const mouse = new THREE.Vector2(
-    (e.clientX / window.innerWidth) * 2 - 1,
-    -(e.clientY / window.innerHeight) * 2 + 1,
-  );
-
-  const raycaster = new THREE.Raycaster();
-  raycaster.setFromCamera(mouse, camera);
-
-  if (raycaster.intersectObject(state.model, true).length > 0) {
-    if (state.isAnimating) return;
-
-    state.isBookOpen = !state.isBookOpen;
-    state.isAnimating = true;
-
-    gsap.to(state.rightBone.rotation, {
-      y: state.isBookOpen ? 0 : Math.PI * 0.99,
-      duration: CONFIG.interaction.animDuration,
-      ease: "expo.out",
+      gsap.to(this.state.model.rotation, {
+        x: Math.PI / 2,
+        duration: CONFIG.interaction.cameraAnimDuration,
+        ease: "power2.out",
+        onComplete: () => {
+          this.ui.toggleDescription(true);
+          setTimeout(() => {
+            this.state.pages.forEach((p) => {
+              if (p.animateOnOpen) this.typewriter.start(p);
+            });
+          }, 1000);
+        },
+      });
     });
+  }
 
-    gsap.to(state.model.position, {
-      x: state.isBookOpen ? CONFIG.model.openOffset : CONFIG.model.closedOffset,
-      duration: CONFIG.interaction.animDuration,
-      ease: "expo.out",
-    });
+  resetView() {
+    if (this.state.isAnimating || !this.state.model || !this.state.rightBone) return;
+    this.state.isAnimating = true;
 
-    const targetZ =
-      CONFIG.camera.getZ() +
-      (state.isBookOpen ? CONFIG.camera.zoomOffset() : 0);
+    const targetPosX = this.state.isBookOpen ? CONFIG.model.openOffset : CONFIG.model.closedOffset;
+    const targetZ = CONFIG.camera.getZ() + (this.state.isBookOpen ? CONFIG.camera.zoomOffset() : 0);
+    const targetBoneY = this.state.isBookOpen ? 0 : Math.PI * 0.99;
 
-    gsap.to(camera.position, {
+    gsap.to(this.camera.position, {
       x: 0,
       y: 0,
       z: targetZ,
@@ -542,28 +428,110 @@ window.addEventListener("pointerup", (e) => {
       ease: "expo.out",
     });
 
-    gsap.to(controls.target, {
+    gsap.to(this.state.rightBone.rotation, {
+      y: targetBoneY,
+      duration: CONFIG.interaction.animDuration,
+      ease: "expo.out",
+    });
+
+    gsap.to(this.state.model.position, {
+      x: targetPosX,
+      duration: CONFIG.interaction.animDuration,
+      ease: "expo.out",
+    });
+
+    gsap.to(this.controls.target, {
       x: 0,
       y: 0,
       z: 0,
       duration: CONFIG.interaction.cameraAnimDuration,
       ease: "expo.out",
       onComplete: () => {
-        state.isAnimating = false;
+        this.state.isAnimating = false;
+        this.controls.update();
       },
     });
   }
-});
 
-const animate = () => {
-  requestAnimationFrame(animate);
-  controls.update();
-  renderer.render(scene, camera);
-};
-animate();
+  setupInteractions() {
+    window.addEventListener("pointerdown", (e) => {
+      this.interactionCtx.startX = e.clientX;
+      this.interactionCtx.startY = e.clientY;
+    });
 
-window.addEventListener("resize", () => {
-  camera.aspect = window.innerWidth / window.innerHeight;
-  camera.updateProjectionMatrix();
-  renderer.setSize(window.innerWidth, window.innerHeight);
+    window.addEventListener("pointerup", (e) => {
+      if (!this.state.model || !this.state.rightBone) return;
+
+      const dist = Math.hypot(
+        e.clientX - this.interactionCtx.startX,
+        e.clientY - this.interactionCtx.startY,
+      );
+      if (dist > CONFIG.interaction.clickTolerance) return;
+
+      const mouse = new THREE.Vector2(
+        (e.clientX / window.innerWidth) * 2 - 1,
+        -(e.clientY / window.innerHeight) * 2 + 1,
+      );
+
+      const raycaster = new THREE.Raycaster();
+      raycaster.setFromCamera(mouse, this.camera);
+
+      if (raycaster.intersectObject(this.state.model, true).length > 0) {
+        if (this.state.isAnimating) return;
+
+        this.state.isBookOpen = !this.state.isBookOpen;
+        this.state.isAnimating = true;
+
+        gsap.to(this.state.rightBone.rotation, {
+          y: this.state.isBookOpen ? 0 : Math.PI * 0.99,
+          duration: CONFIG.interaction.animDuration,
+          ease: "expo.out",
+        });
+
+        gsap.to(this.state.model.position, {
+          x: this.state.isBookOpen ? CONFIG.model.openOffset : CONFIG.model.closedOffset,
+          duration: CONFIG.interaction.animDuration,
+          ease: "expo.out",
+        });
+
+        const targetZ = CONFIG.camera.getZ() + (this.state.isBookOpen ? CONFIG.camera.zoomOffset() : 0);
+
+        gsap.to(this.camera.position, {
+          x: 0,
+          y: 0,
+          z: targetZ,
+          duration: CONFIG.interaction.cameraAnimDuration,
+          ease: "expo.out",
+        });
+
+        gsap.to(this.controls.target, {
+          x: 0,
+          y: 0,
+          z: 0,
+          duration: CONFIG.interaction.cameraAnimDuration,
+          ease: "expo.out",
+          onComplete: () => {
+            this.state.isAnimating = false;
+          },
+        });
+      }
+    });
+
+    window.addEventListener("resize", () => {
+      this.camera.aspect = window.innerWidth / window.innerHeight;
+      this.camera.updateProjectionMatrix();
+      this.renderer.setSize(window.innerWidth, window.innerHeight);
+    });
+  }
+
+  animate() {
+    requestAnimationFrame(this.animate);
+    this.controls.update();
+    this.renderer.render(this.scene, this.camera);
+  }
+}
+
+// Boot the application
+document.addEventListener("DOMContentLoaded", () => {
+  new ThreeApp();
 });

@@ -26,6 +26,13 @@ canvas {
   display: block;
 }
 
+#app-ui {
+  pointer-events: none;
+  position: absolute;
+  inset: 0;
+  z-index: 10;
+}
+
 .header-panel {
   position: absolute;
   top: 40px;
