@@ -1,4 +1,3 @@
-// --- Configuration ---
 const CONFIG = {
   camera: {
     fov: 45,
@@ -22,7 +21,6 @@ const CONFIG = {
   },
 };
 
-// --- Application State ---
 const state = {
   isBookOpen: false,
   isAnimating: false,
@@ -32,7 +30,6 @@ const state = {
   pages: [],
 };
 
-// --- Setup Three.js Environment ---
 const scene = new THREE.Scene();
 
 const camera = new THREE.PerspectiveCamera(
@@ -56,17 +53,65 @@ scene.add(dirLight);
 
 const controls = new THREE.OrbitControls(camera, renderer.domElement);
 controls.enableDamping = true;
-controls.enablePan = false;
+controls.enablePan = true;
 controls.minDistance = 2;
 controls.maxDistance = 10;
 
-// --- UI Management ---
 const ui = {
   panelTitle: document.getElementById("panel-title"),
   panelDesc: document.getElementById("panel-desc"),
-  clickHint: document.getElementById("click-hint"),
+  resetBtn: document.getElementById("reset-view"),
   hideDescTimer: null,
 };
+
+const resetView = () => {
+  if (state.isAnimating || !state.model || !state.rightBone) return;
+  state.isAnimating = true;
+
+  const targetPosX = state.isBookOpen
+    ? CONFIG.model.openOffset
+    : CONFIG.model.closedOffset;
+  const targetZ =
+    CONFIG.camera.getZ() + (state.isBookOpen ? CONFIG.camera.zoomOffset() : 0);
+  const targetBoneY = state.isBookOpen ? 0 : Math.PI * 0.99;
+
+  gsap.to(camera.position, {
+    x: 0,
+    y: 0,
+    z: targetZ,
+    duration: CONFIG.interaction.cameraAnimDuration,
+    ease: "expo.out",
+  });
+
+  gsap.to(state.rightBone.rotation, {
+    y: targetBoneY,
+    duration: CONFIG.interaction.animDuration,
+    ease: "expo.out",
+  });
+
+  gsap.to(state.model.position, {
+    x: targetPosX,
+    duration: CONFIG.interaction.animDuration,
+    ease: "expo.out",
+  });
+
+  gsap.to(controls.target, {
+    x: 0,
+    y: 0,
+    z: 0,
+    duration: CONFIG.interaction.cameraAnimDuration,
+    ease: "expo.out",
+    onComplete: () => {
+      state.isAnimating = false;
+      controls.update();
+    },
+  });
+};
+
+ui.resetBtn.addEventListener("click", (e) => {
+  e.stopPropagation();
+  resetView();
+});
 
 const toggleDescription = (show = true) => {
   clearTimeout(ui.hideDescTimer);
@@ -90,12 +135,6 @@ const toggleDescription = (show = true) => {
 
 ui.panelTitle.addEventListener("click", () => toggleDescription(true));
 
-// --- Stable Layout & Rendering ---
-
-/**
- * Pre-calculates the layout (line breaks and word positions) for a given text.
- * This ensures that word positions remain stable during the typewriter animation.
- */
 function calculateLayout(ctx, text, maxWidth, fontSize, padding) {
   const layout = { paragraphs: [] };
   const paragraphs = text.split("\n");
@@ -140,9 +179,6 @@ function calculateLayout(ctx, text, maxWidth, fontSize, padding) {
   return { layout, lineHeight };
 }
 
-/**
- * Renders the pre-calculated layout up to a certain character progress.
- */
 function renderLayout(
   ctx,
   canvas,
@@ -174,9 +210,7 @@ function renderLayout(
       const isLastLineOfParagraph = lineIndex === paragraph.lines.length - 1;
       let lineText = "";
       let visibleWords = [];
-      let lineFullCharCount = 0;
 
-      // Determine how much of this line is visible
       for (let word of line.words) {
         const wordPlusSpace = word.text + " ";
         if (charCount + wordPlusSpace.length <= progress) {
@@ -184,7 +218,6 @@ function renderLayout(
           lineText += wordPlusSpace;
           charCount += wordPlusSpace.length;
         } else {
-          // Word is partially typed
           const remainingChars = progress - charCount;
           if (remainingChars > 0) {
             const partialWord = word.text.slice(0, remainingChars);
@@ -203,8 +236,6 @@ function renderLayout(
         visibleWords.length === line.words.length &&
         lineText.trim() === line.words.map((w) => w.text).join(" ");
 
-      // RENDER LOGIC:
-      // Only justify if the line is FULLY complete AND it's not the last line of a paragraph.
       if (!isLastLineOfParagraph && isLineComplete) {
         drawJustifiedLine(
           ctx,
@@ -220,7 +251,7 @@ function renderLayout(
       currentY += lineHeight;
     });
 
-    currentY += 10; // Paragraph spacing
+    currentY += 10;
   });
 }
 
@@ -290,7 +321,6 @@ function createTypewriterPage(
   textPlane.rotation.set(initial.rx, initial.ry, initial.rz);
   bone.add(textPlane);
 
-  // Layout Parameters
   const padding = 80;
   const maxWidth = canvas.width - padding * 2;
 
@@ -314,7 +344,7 @@ function createTypewriterPage(
     fullText: text,
     animateOnOpen,
     isTyping: false,
-    hasRun: false, // Flag to ensure it only types once
+    hasRun: false,
     textObj: { progress: 0 },
   };
 
@@ -364,7 +394,6 @@ function startTypewriter(page) {
   });
 }
 
-// --- Model Initialization ---
 new THREE.GLTFLoader().load(CONFIG.model.path, (gltf) => {
   state.model = gltf.scene;
   scene.add(state.model);
@@ -401,22 +430,22 @@ new THREE.GLTFLoader().load(CONFIG.model.path, (gltf) => {
       },
       {
         bone: state.rightBone,
-        text: "SELAMAT ULANG TAHUN YANG KE 22\nSITI MEGA UTAMA HENDRAWAN.\n\nSemoga panjang umur, sehat selalu, makin pinter, makin sukses, makin cantik, makin baik, makin segalanya deh pokoknya. Aamiin.",
+        text: "18-04-2004\nSELAMAT ULANG TAHUN YANG KE 22\nSITI MEGA UTAMA HENDRAWAN.\n\nSemoga panjang umur, sehat selalu, makin pinter, makin sukses, makin cantik, pokoknya yang terbaik buat kamu. Aamiin.",
         initial: { x: 0, y: 1, z: 0, rx: 0, ry: 0, rz: -1.6 },
         animateOnOpen: false,
-        fontSize: 60,
+        fontSize: 75,
       },
       {
         bone: state.leftBone,
-        text: "Terima kasih sudah mau jadi temenku, partner in crimeku, temen curhatku, temen ngakakku, temen segalanya deh pokoknya. Aku seneng banget bisa kenal sama kamu, kamu orang yang baik, sabar, lucu, pinter, cantik, dan segalanya deh pokoknya. Aamiin.\n Jangan lupa baca halaman belakangnya wkkwwk",
-        initial: { x: 0.5, y: 1, z: 0, rx: 0, ry: 0, rz: 1.6 },
+        text: "Makasih ya udah jadi orang baik dihidup aku, aku seneng bisa kenal kamu, kamu orangnya baik, pinter. Aku masih bisa inget hal-hal kecil karena kamu salah satu orang yang masuk core memori aku, So you're special.\nJangan lupa baca halaman belakang ya hahaha",
+        initial: { x: 0.05, y: 1, z: 0, rx: 0, ry: 0, rz: 1.6 },
         animateOnOpen: false,
-        fontSize: 50,
+        fontSize: 75,
       },
       {
         bone: state.leftBone,
-        text: "Yang Bikin:\nProgrammer ganteng dan intelek",
-        initial: { x: 1, y: 0.9, z: 0, rx: 0, ry: Math.PI, rz: -1.6 },
+        text: "Yang Buat:\nProgrammer ganteng dan intelek",
+        initial: { x: 0.5, y: 1, z: 0, rx: 0, ry: Math.PI, rz: -1.6 },
         animateOnOpen: false,
         fontSize: 80,
       },
@@ -450,14 +479,7 @@ new THREE.GLTFLoader().load(CONFIG.model.path, (gltf) => {
     duration: CONFIG.interaction.cameraAnimDuration,
     ease: "power2.out",
     onComplete: () => {
-      ui.clickHint.style.display = "inline-flex";
-      gsap.to(ui.clickHint, {
-        opacity: 1,
-        duration: CONFIG.interaction.fadeDuration,
-      });
       toggleDescription(true);
-
-      // Auto-trigger typewriter 2 seconds after everything is ready
       setTimeout(() => {
         state.pages.forEach((p) => {
           if (p.animateOnOpen) startTypewriter(p);
@@ -467,7 +489,6 @@ new THREE.GLTFLoader().load(CONFIG.model.path, (gltf) => {
   });
 });
 
-// --- User Interactions ---
 const interactionCtx = { startX: 0, startY: 0 };
 window.addEventListener("pointerdown", (e) => {
   interactionCtx.startX = e.clientX;
@@ -531,10 +552,6 @@ window.addEventListener("pointerup", (e) => {
         state.isAnimating = false;
       },
     });
-
-    ui.clickHint.innerHTML = state.isBookOpen
-      ? 'Klik buku untuk menutup <span style="font-size: 18px;"></span>'
-      : '<span style="font-size: 18px;"></span> Klik buku untuk membuka';
   }
 });
 
