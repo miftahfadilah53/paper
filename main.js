@@ -34,7 +34,9 @@ class UIController {
       onResetCallback();
     });
 
-    this.panelTitle.addEventListener("click", () => this.toggleDescription(true));
+    this.panelTitle.addEventListener("click", () =>
+      this.toggleDescription(true),
+    );
   }
 
   toggleDescription(show = true) {
@@ -46,7 +48,10 @@ class UIController {
         duration: this.fadeDuration,
         ease: "back.out(1.2)",
       });
-      this.hideDescTimer = setTimeout(() => this.toggleDescription(false), 4000);
+      this.hideDescTimer = setTimeout(
+        () => this.toggleDescription(false),
+        4000,
+      );
     } else {
       gsap.to(this.panelDesc, {
         height: 0,
@@ -83,7 +88,10 @@ class TypewriterRenderer {
         const wordWidth = ctx.measureText(word).width;
         const spaceWidth = ctx.measureText(" ").width;
 
-        if (currentLine.totalWordsWidth + wordWidth > maxWidth && currentLine.words.length > 0) {
+        if (
+          currentLine.totalWordsWidth + wordWidth > maxWidth &&
+          currentLine.words.length > 0
+        ) {
           paragraph.lines.push(currentLine);
           currentLine = { words: [], totalWordsWidth: 0 };
         }
@@ -99,7 +107,16 @@ class TypewriterRenderer {
     return { layout, lineHeight };
   }
 
-  renderLayout(ctx, canvas, layout, progress, maxWidth, fontSize, lineHeight, padding) {
+  renderLayout(
+    ctx,
+    canvas,
+    layout,
+    progress,
+    maxWidth,
+    fontSize,
+    lineHeight,
+    padding,
+  ) {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     ctx.font = `${fontSize}px 'Caveat', cursive`;
     ctx.fillStyle = "#2c1810";
@@ -115,24 +132,20 @@ class TypewriterRenderer {
         return;
       }
 
-      paragraph.lines.forEach((line, lineIndex) => {
+      paragraph.lines.forEach((line) => {
         if (charCount >= progress) return;
 
-        const isLastLineOfParagraph = lineIndex === paragraph.lines.length - 1;
         let lineText = "";
-        let visibleWords = [];
 
         for (let word of line.words) {
           const wordPlusSpace = word.text + " ";
           if (charCount + wordPlusSpace.length <= progress) {
-            visibleWords.push(word);
             lineText += wordPlusSpace;
             charCount += wordPlusSpace.length;
           } else {
             const remainingChars = progress - charCount;
             if (remainingChars > 0) {
               const partialWord = word.text.slice(0, remainingChars);
-              visibleWords.push({ text: partialWord, width: ctx.measureText(partialWord).width });
               lineText += partialWord;
               charCount += remainingChars;
             }
@@ -140,43 +153,12 @@ class TypewriterRenderer {
           }
         }
 
-        const isLineComplete =
-          visibleWords.length === line.words.length &&
-          lineText.trim() === line.words.map((w) => w.text).join(" ");
-
-        if (!isLastLineOfParagraph && isLineComplete) {
-          this.drawJustifiedLine(ctx, visibleWords.map((w) => w.text), padding, currentY, maxWidth);
-        } else {
-          this.drawLeftLine(ctx, lineText, padding, currentY);
-        }
-
+        this.drawLeftLine(ctx, lineText, padding, currentY);
         currentY += lineHeight;
       });
 
       currentY += 10;
     });
-  }
-
-  drawJustifiedLine(ctx, words, x, y, maxWidth) {
-    let totalWordsWidth = 0;
-    words.forEach((word) => {
-      totalWordsWidth += ctx.measureText(word).width;
-    });
-
-    const totalSpaceWidth = maxWidth - totalWordsWidth;
-    const spacing = words.length > 1 ? totalSpaceWidth / (words.length - 1) : 0;
-
-    let currentX = x;
-    ctx.save();
-    ctx.globalAlpha = 0.95;
-    ctx.shadowColor = "rgba(0,0,0,0.15)";
-    ctx.shadowBlur = 1;
-
-    words.forEach((word) => {
-      ctx.fillText(word, currentX, y);
-      currentX += ctx.measureText(word).width + spacing;
-    });
-    ctx.restore();
   }
 
   drawLeftLine(ctx, text, x, y) {
@@ -188,7 +170,15 @@ class TypewriterRenderer {
     ctx.restore();
   }
 
-  createPage(bone, sharedGeometry, text, initial, animateOnOpen, fontSize, pagesState) {
+  createPage(
+    bone,
+    sharedGeometry,
+    text,
+    initial,
+    renderInstantly,
+    fontSize,
+    pagesState,
+  ) {
     const canvas = document.createElement("canvas");
     canvas.width = 1024;
     canvas.height = 1024;
@@ -216,7 +206,13 @@ class TypewriterRenderer {
 
     const padding = 80;
     const maxWidth = canvas.width - padding * 2;
-    const { layout, lineHeight } = this.calculateLayout(ctx, text, maxWidth, fontSize, padding);
+    const { layout, lineHeight } = this.calculateLayout(
+      ctx,
+      text,
+      maxWidth,
+      fontSize,
+      padding,
+    );
 
     const pageData = {
       texture,
@@ -228,53 +224,72 @@ class TypewriterRenderer {
       lineHeight,
       padding,
       fullText: text,
-      animateOnOpen,
+      renderInstantly,
       isTyping: false,
       hasRun: false,
       textObj: { progress: 0 },
     };
 
-    if (!animateOnOpen) {
-      this.renderLayout(ctx, canvas, layout, text.length + 1000, maxWidth, fontSize, lineHeight, padding);
+    if (renderInstantly) {
+      this.renderLayout(
+        ctx,
+        canvas,
+        layout,
+        text.length + 1000,
+        maxWidth,
+        fontSize,
+        lineHeight,
+        padding,
+      );
       texture.needsUpdate = true;
+      pageData.hasRun = true;
     }
 
     pagesState.push(pageData);
   }
 
-  start(page) {
+  start(page, onComplete) {
     if (page.isTyping || page.hasRun) return;
     page.isTyping = true;
     page.hasRun = true;
     page.textObj.progress = 0;
 
-    let lastProgress = -1;
+    const baseDelay = this.typingSpeed * 1000;
 
-    gsap.to(page.textObj, {
-      progress: page.fullText.length,
-      duration: page.fullText.length * this.typingSpeed,
-      ease: "none",
-      onUpdate: () => {
-        const currentProgress = Math.floor(page.textObj.progress);
-        if (currentProgress !== lastProgress) {
-          lastProgress = currentProgress;
-          this.renderLayout(
-            page.ctx,
-            page.canvas,
-            page.layout,
-            currentProgress,
-            page.maxWidth,
-            page.fontSize,
-            page.lineHeight,
-            page.padding,
-          );
-          page.texture.needsUpdate = true;
-        }
-      },
-      onComplete: () => {
+    const typeChar = () => {
+      if (page.textObj.progress >= page.fullText.length) {
         page.isTyping = false;
-      },
-    });
+        if (onComplete) onComplete();
+        return;
+      }
+
+      page.textObj.progress += 1;
+      const currentProgress = page.textObj.progress;
+
+      this.renderLayout(
+        page.ctx,
+        page.canvas,
+        page.layout,
+        currentProgress,
+        page.maxWidth,
+        page.fontSize,
+        page.lineHeight,
+        page.padding,
+      );
+      page.texture.needsUpdate = true;
+
+      const char = page.fullText[currentProgress - 1];
+      let delay = baseDelay + (Math.random() * 40 - 20);
+      if (char === "," || char === ".") {
+        delay += 300;
+      } else if (char === "\n") {
+        delay += 400;
+      }
+
+      setTimeout(typeChar, Math.max(10, delay));
+    };
+
+    typeChar();
   }
 }
 
@@ -288,7 +303,7 @@ class ThreeApp {
       leftBone: null,
       pages: [],
     };
-    
+
     this.interactionCtx = { startX: 0, startY: 0 };
     this.ui = new UIController(() => this.resetView());
     this.typewriter = new TypewriterRenderer(CONFIG.interaction.typingSpeed);
@@ -296,7 +311,7 @@ class ThreeApp {
     this.initScene();
     this.loadModel();
     this.setupInteractions();
-    
+
     this.animate = this.animate.bind(this);
     this.animate();
   }
@@ -323,7 +338,10 @@ class ThreeApp {
     dirLight.position.set(5, 5, 5);
     this.scene.add(dirLight);
 
-    this.controls = new THREE.OrbitControls(this.camera, this.renderer.domElement);
+    this.controls = new THREE.OrbitControls(
+      this.camera,
+      this.renderer.domElement,
+    );
     this.controls.enableDamping = true;
     this.controls.enablePan = true;
     this.controls.minDistance = 2;
@@ -335,8 +353,12 @@ class ThreeApp {
       this.state.model = gltf.scene;
       this.scene.add(this.state.model);
 
-      this.state.rightBone = this.state.model.getObjectByName("bone002") || this.state.model.getObjectByName("Bone002");
-      this.state.leftBone = this.state.model.getObjectByName("bone001") || this.state.model.getObjectByName("Bone001");
+      this.state.rightBone =
+        this.state.model.getObjectByName("bone002") ||
+        this.state.model.getObjectByName("Bone002");
+      this.state.leftBone =
+        this.state.model.getObjectByName("bone001") ||
+        this.state.model.getObjectByName("Bone001");
 
       let pageMesh = null;
       this.state.model.traverse((child) => {
@@ -351,49 +373,71 @@ class ThreeApp {
         pageMesh.geometry.computeBoundingBox();
         const size = new THREE.Vector3();
         pageMesh.geometry.boundingBox.getSize(size);
-        const sharedGeometry = new THREE.PlaneGeometry(size.x * 0.45, size.z * 0.8);
+        const sharedGeometry = new THREE.PlaneGeometry(
+          size.x * 0.45,
+          size.z * 0.8,
+        );
 
         const setup = [
           {
             bone: this.state.rightBone,
             text: `Halo, waktu itu kamu pernah ngasih aku kertas kann, sekarang aku bakal kasih kamu kertas yang lebih keren, yang ga akan kamu temuin dimanapun. Kertas apaan sih ini?? buka dong biar tauu. Pencet aja kertasnya`,
             initial: { x: -0.36, y: 1.1, z: 0, rx: 0, ry: Math.PI, rz: 1.6 },
-            animateOnOpen: true,
-            fontSize: 70,
+            renderInstantly: false,
+            autoStart: true,
+            fontSize: 80,
           },
           {
             bone: this.state.rightBone,
-            text: "18-04-2004\nSELAMAT ULANG TAHUN YANG KE 22\nSITI MEGA UTAMA HENDRAWAN.\n\nSemoga panjang umur, sehat selalu, makin pinter, makin sukses, makin cantik, pokoknya yang terbaik buat kamu. Aamiin.",
-            initial: { x: 0, y: 1, z: 0, rx: 0, ry: 0, rz: -1.6 },
-            animateOnOpen: true,
-            fontSize: 75,
+            text: "18-04-2004\nSELAMAT ULANG TAHUN YANG KE 22\nSITI MEGA UTAMA HENDRAWAN.\nSemoga panjang umur, sehat selalu, makin pinter, makin sukses, makin cantik, pokoknya yang terbaik buat kamu. Aamiin.",
+            initial: { x: 0.1, y: 1, z: 0, rx: 0, ry: 0, rz: -1.6 },
+            renderInstantly: true,
+            autoStart: false,
+            fontSize: 79,
           },
           {
             bone: this.state.leftBone,
-            text: "Makasih ya udah jadi orang baik dihidup aku, aku seneng bisa kenal kamu, kamu orangnya baik, pinter. Aku masih bisa inget hal-hal kecil karena kamu salah satu orang yang masuk core memori aku, So you're special.\nJangan lupa baca halaman belakang ya hahaha",
-            initial: { x: 0.05, y: 1, z: 0, rx: 0, ry: 0, rz: 1.6 },
-            animateOnOpen: true,
-            fontSize: 75,
+            text: "Makasih ya udah jadi orang baik dihidup aku, aku seneng bisa kenal kamu, kamu orangnya baik, pinter. Aku masih bisa inget hal-hal kecil karena kamu salah satu orang yang masuk core memori aku, So you're special.\nJangan lupa baca halaman belakang ya hahaha (puter kanan)",
+            initial: { x: -0.2, y: 1, z: 0, rx: 0, ry: 0, rz: 1.6 },
+            renderInstantly: true,
+            autoStart: false,
+            fontSize: 77,
           },
           {
             bone: this.state.leftBone,
-            text: "Yang Buat:\nProgrammer ganteng dan intelek",
+            text: "Yang Buat:\nProgrammer ganteng dan intelek  😜",
             initial: { x: 0.5, y: 1, z: 0, rx: 0, ry: Math.PI, rz: -1.6 },
-            animateOnOpen: false,
-            fontSize: 80,
+            renderInstantly: true,
+            autoStart: false,
+            fontSize: 120,
           },
         ];
 
-        if (this.state.rightBone) this.state.rightBone.rotation.y = Math.PI * 0.99;
+        if (this.state.rightBone)
+          this.state.rightBone.rotation.y = Math.PI * 0.99;
 
         setup.forEach((p) => {
           if (p.bone) {
-            this.typewriter.createPage(p.bone, sharedGeometry, p.text, p.initial, p.animateOnOpen, p.fontSize, this.state.pages);
+            this.typewriter.createPage(
+              p.bone,
+              sharedGeometry,
+              p.text,
+              p.initial,
+              p.renderInstantly,
+              p.fontSize,
+              this.state.pages,
+            );
+            this.state.pages[this.state.pages.length - 1].autoStart =
+              p.autoStart;
           }
         });
       });
 
-      this.state.model.position.set(CONFIG.model.initialPos.x, CONFIG.model.initialPos.y, CONFIG.model.initialPos.z);
+      this.state.model.position.set(
+        CONFIG.model.initialPos.x,
+        CONFIG.model.initialPos.y,
+        CONFIG.model.initialPos.z,
+      );
       this.state.model.rotation.set(Math.PI / 4, 0, 0);
 
       gsap.to(this.state.model.rotation, {
@@ -404,7 +448,7 @@ class ThreeApp {
           this.ui.toggleDescription(true);
           setTimeout(() => {
             this.state.pages.forEach((p) => {
-              if (p.animateOnOpen) this.typewriter.start(p);
+              if (p.autoStart) this.typewriter.start(p);
             });
           }, 1000);
         },
@@ -413,11 +457,16 @@ class ThreeApp {
   }
 
   resetView() {
-    if (this.state.isAnimating || !this.state.model || !this.state.rightBone) return;
+    if (this.state.isAnimating || !this.state.model || !this.state.rightBone)
+      return;
     this.state.isAnimating = true;
 
-    const targetPosX = this.state.isBookOpen ? CONFIG.model.openOffset : CONFIG.model.closedOffset;
-    const targetZ = CONFIG.camera.getZ() + (this.state.isBookOpen ? CONFIG.camera.zoomOffset() : 0);
+    const targetPosX = this.state.isBookOpen
+      ? CONFIG.model.openOffset
+      : CONFIG.model.closedOffset;
+    const targetZ =
+      CONFIG.camera.getZ() +
+      (this.state.isBookOpen ? CONFIG.camera.zoomOffset() : 0);
     const targetBoneY = this.state.isBookOpen ? 0 : Math.PI * 0.99;
 
     gsap.to(this.camera.position, {
@@ -482,6 +531,17 @@ class ThreeApp {
         this.state.isBookOpen = !this.state.isBookOpen;
         this.state.isAnimating = true;
 
+        if (this.state.isBookOpen) {
+          const p2 = this.state.pages[1];
+          const p3 = this.state.pages[2];
+
+          setTimeout(() => {
+            this.typewriter.start(p2, () => {
+              this.typewriter.start(p3);
+            });
+          }, CONFIG.interaction.animDuration * 1000);
+        }
+
         gsap.to(this.state.rightBone.rotation, {
           y: this.state.isBookOpen ? 0 : Math.PI * 0.99,
           duration: CONFIG.interaction.animDuration,
@@ -489,12 +549,16 @@ class ThreeApp {
         });
 
         gsap.to(this.state.model.position, {
-          x: this.state.isBookOpen ? CONFIG.model.openOffset : CONFIG.model.closedOffset,
+          x: this.state.isBookOpen
+            ? CONFIG.model.openOffset
+            : CONFIG.model.closedOffset,
           duration: CONFIG.interaction.animDuration,
           ease: "expo.out",
         });
 
-        const targetZ = CONFIG.camera.getZ() + (this.state.isBookOpen ? CONFIG.camera.zoomOffset() : 0);
+        const targetZ =
+          CONFIG.camera.getZ() +
+          (this.state.isBookOpen ? CONFIG.camera.zoomOffset() : 0);
 
         gsap.to(this.camera.position, {
           x: 0,
@@ -531,7 +595,6 @@ class ThreeApp {
   }
 }
 
-// Boot the application
 document.addEventListener("DOMContentLoaded", () => {
   new ThreeApp();
 });
