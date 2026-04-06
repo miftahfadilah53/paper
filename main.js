@@ -64,7 +64,7 @@ class UIController {
       });
       this.hideDescTimer = setTimeout(
         () => this.toggleDescription(false),
-        120000,
+        30000,
       );
     } else {
       gsap.to(this.panelDesc, {
@@ -107,7 +107,7 @@ class TypewriterRenderer {
     paragraphs.forEach((pText) => {
       const paragraph = { lines: [] };
       const words = pText.trim().split(/\s+/);
-      
+
       if (words.length === 0 || (words.length === 1 && words[0] === "")) {
         paragraph.isEmpty = true;
         layout.paragraphs.push(paragraph);
@@ -115,7 +115,7 @@ class TypewriterRenderer {
       }
 
       let currentLineWords = [];
-      
+
       for (let i = 0; i < words.length; i++) {
         const word = words[i];
         const testLine = [...currentLineWords, word].join(" ");
@@ -128,11 +128,11 @@ class TypewriterRenderer {
         } else {
           // Check if a single word is wider than maxWidth
           if (testWidth > maxWidth && currentLineWords.length === 0) {
-             // Handle extremely long words by forced splitting (optional, here we just allow)
-             paragraph.lines.push({ text: word });
-             currentLineWords = [];
+            // Handle extremely long words by forced splitting (optional, here we just allow)
+            paragraph.lines.push({ text: word });
+            currentLineWords = [];
           } else {
-             currentLineWords.push(word);
+            currentLineWords.push(word);
           }
         }
       }
@@ -147,7 +147,16 @@ class TypewriterRenderer {
     return { layout, lineHeight };
   }
 
-  renderLayout(ctx, canvas, layout, progress, maxWidth, fontSize, lineHeight, padding) {
+  renderLayout(
+    ctx,
+    canvas,
+    layout,
+    progress,
+    maxWidth,
+    fontSize,
+    lineHeight,
+    padding,
+  ) {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     ctx.font = `${fontSize}px 'Caveat'`;
     ctx.fillStyle = "#2c1810";
@@ -168,7 +177,7 @@ class TypewriterRenderer {
 
         const remainingChars = progress - charCount;
         const lineText = line.text.substring(0, remainingChars);
-        
+
         ctx.save();
         ctx.globalAlpha = 0.95;
         ctx.shadowColor = "rgba(0,0,0,0.15)";
@@ -179,7 +188,7 @@ class TypewriterRenderer {
         charCount += line.text.length + 1; // +1 to account for the space or newline implied
         currentY += lineHeight;
       }
-      
+
       if (charCount >= progress) break;
       currentY += 10; // Paragraph spacing
     }
