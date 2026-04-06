@@ -98,51 +98,56 @@ class TypewriterRenderer {
     const layout = { paragraphs: [] };
     const paragraphs = text.split("\n");
     const lineHeight = fontSize * 1.2;
-    ctx.font = `${fontSize}px 'Caveat'`;
+    const fontStr = `${fontSize}px 'Caveat'`;
+    ctx.font = fontStr;
+
+    // Font Warm-up: Forced measurement to ensure font activation
+    ctx.measureText("test string");
 
     paragraphs.forEach((pText) => {
       const paragraph = { lines: [] };
       const words = pText.trim().split(/\s+/);
+      
       if (words.length === 0 || (words.length === 1 && words[0] === "")) {
         paragraph.isEmpty = true;
         layout.paragraphs.push(paragraph);
         return;
       }
 
-      let currentLine = { words: [], totalWordsWidth: 0 };
-      words.forEach((word) => {
-        const wordWidth = ctx.measureText(word).width;
-        const spaceWidth = ctx.measureText(" ").width;
+      let currentLineWords = [];
+      
+      for (let i = 0; i < words.length; i++) {
+        const word = words[i];
+        const testLine = [...currentLineWords, word].join(" ");
+        const testWidth = ctx.measureText(testLine).width;
 
-        if (
-          currentLine.totalWordsWidth + wordWidth > maxWidth &&
-          currentLine.words.length > 0
-        ) {
-          paragraph.lines.push(currentLine);
-          currentLine = { words: [], totalWordsWidth: 0 };
+        if (testWidth > maxWidth && currentLineWords.length > 0) {
+          // Push current line and start a new one with the current word
+          paragraph.lines.push({ text: currentLineWords.join(" ") });
+          currentLineWords = [word];
+        } else {
+          // Check if a single word is wider than maxWidth
+          if (testWidth > maxWidth && currentLineWords.length === 0) {
+             // Handle extremely long words by forced splitting (optional, here we just allow)
+             paragraph.lines.push({ text: word });
+             currentLineWords = [];
+          } else {
+             currentLineWords.push(word);
+          }
         }
+      }
 
-        currentLine.words.push({ text: word, width: wordWidth });
-        currentLine.totalWordsWidth += wordWidth + spaceWidth;
-      });
+      if (currentLineWords.length > 0) {
+        paragraph.lines.push({ text: currentLineWords.join(" ") });
+      }
 
-      if (currentLine.words.length > 0) paragraph.lines.push(currentLine);
       layout.paragraphs.push(paragraph);
     });
 
     return { layout, lineHeight };
   }
 
-  renderLayout(
-    ctx,
-    canvas,
-    layout,
-    progress,
-    maxWidth,
-    fontSize,
-    lineHeight,
-    padding,
-  ) {
+  renderLayout(ctx, canvas, layout, progress, maxWidth, fontSize, lineHeight, padding) {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     ctx.font = `${fontSize}px 'Caveat'`;
     ctx.fillStyle = "#2c1810";
@@ -152,39 +157,32 @@ class TypewriterRenderer {
     let currentY = padding;
     let charCount = 0;
 
-    layout.paragraphs.forEach((paragraph) => {
+    for (const paragraph of layout.paragraphs) {
       if (paragraph.isEmpty) {
-        currentY += lineHeight / 2;
-        return;
+        currentY += lineHeight * 0.5;
+        continue;
       }
 
-      paragraph.lines.forEach((line) => {
-        if (charCount >= progress) return;
+      for (const line of paragraph.lines) {
+        if (charCount >= progress) break;
 
-        let lineText = "";
+        const remainingChars = progress - charCount;
+        const lineText = line.text.substring(0, remainingChars);
+        
+        ctx.save();
+        ctx.globalAlpha = 0.95;
+        ctx.shadowColor = "rgba(0,0,0,0.15)";
+        ctx.shadowBlur = 1;
+        ctx.fillText(lineText, padding, currentY);
+        ctx.restore();
 
-        for (let word of line.words) {
-          const wordPlusSpace = word.text + " ";
-          if (charCount + wordPlusSpace.length <= progress) {
-            lineText += wordPlusSpace;
-            charCount += wordPlusSpace.length;
-          } else {
-            const remainingChars = progress - charCount;
-            if (remainingChars > 0) {
-              const partialWord = word.text.slice(0, remainingChars);
-              lineText += partialWord;
-              charCount += remainingChars;
-            }
-            break;
-          }
-        }
-
-        this.drawLeftLine(ctx, lineText, padding, currentY);
+        charCount += line.text.length + 1; // +1 to account for the space or newline implied
         currentY += lineHeight;
-      });
-
-      currentY += 10;
-    });
+      }
+      
+      if (charCount >= progress) break;
+      currentY += 10; // Paragraph spacing
+    }
   }
 
   drawLeftLine(ctx, text, x, y) {
