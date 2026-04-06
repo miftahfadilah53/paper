@@ -12,6 +12,13 @@
   --font-main: "Inter";
 }
 
+.font-loader {
+  font-family: "Caveat";
+  position: absolute;
+  visibility: hidden;
+  pointer-events: none;
+}
+
 body {
   margin: 0;
   overflow: hidden;
