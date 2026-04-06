@@ -9,7 +9,7 @@
   --radius-sm: 0px;
   --shadow-sm: none;
   --shadow-lg: none;
-  --font-main: "Inter", -apple-system, sans-serif;
+  --font-main: "Inter";
 }
 
 body {
@@ -101,7 +101,7 @@ canvas {
   transform: translateY(0) scale(0.98);
 }
 
-@media (max-width: 600px) {
+@media (max-width: 900px) {
   .header-panel {
     top: 24px;
     left: 20px;
@@ -109,17 +109,44 @@ canvas {
     max-width: none;
     padding: 0;
   }
-  
+
   #panel-title {
     font-size: 14px;
   }
-  
+
   #ui-container {
     bottom: 24px;
   }
-  
+
+  .ui-button {
+    padding: 8px 16px;
+    font-size: 12px;
+  }
+}
+
+@media (max-height: 480px) and (orientation: landscape) {
+  .header-panel {
+    top: 12px;
+    left: 12px;
+    max-width: 280px;
+  }
+
+  #panel-title {
+    font-size: 12px;
+    padding-bottom: 2px;
+  }
+
+  #panel-desc {
+    font-size: 11px;
+    line-height: 1.4;
+  }
+
+  #ui-container {
+    bottom: 12px;
+  }
+
   .ui-button {
     padding: 6px 12px;
-    font-size: 12px;
+    font-size: 11px;
   }
 }

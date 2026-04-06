@@ -3,8 +3,21 @@ const CONFIG = {
     fov: 45,
     near: 0.1,
     far: 100,
-    getZ: () => (window.innerWidth <= 600 ? 6 : 5),
-    zoomOffset: () => (window.innerWidth <= 600 ? 3.5 : 0.5),
+    getZ: () => {
+      const isLandscape = window.innerWidth > window.innerHeight;
+      const isMobile = window.innerWidth <= 1000 && window.innerHeight <= 600;
+      if (isLandscape) {
+        return isMobile ? 4.5 : 5;
+      }
+      return window.innerWidth <= 600 ? 6 : 5;
+    },
+    zoomOffset: () => {
+      const isLandscape = window.innerWidth > window.innerHeight;
+      if (isLandscape) {
+        return window.innerHeight <= 600 ? 1.5 : 0.5;
+      }
+      return window.innerWidth <= 600 ? 3.5 : 0.5;
+    },
   },
   model: {
     path: "/assets/paperex.glb",
@@ -85,7 +98,7 @@ class TypewriterRenderer {
     const layout = { paragraphs: [] };
     const paragraphs = text.split("\n");
     const lineHeight = fontSize * 1.2;
-    ctx.font = `${fontSize}px 'Caveat', cursive`;
+    ctx.font = `${fontSize}px 'Caveat'`;
 
     paragraphs.forEach((pText) => {
       const paragraph = { lines: [] };
@@ -131,7 +144,7 @@ class TypewriterRenderer {
     padding,
   ) {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-    ctx.font = `${fontSize}px 'Caveat', cursive`;
+    ctx.font = `${fontSize}px 'Caveat'`;
     ctx.fillStyle = "#2c1810";
     ctx.textAlign = "left";
     ctx.textBaseline = "top";
@@ -396,7 +409,7 @@ class ThreeApp {
           {
             bone: this.state.rightBone,
             text: `Halo, waktu itu kamu pernah ngasih aku kertas kann, sekarang aku bakal kasih kamu kertas yang lebih keren, yang ga akan kamu temuin dimanapun. Kertas apaan sih ini?? buka dong biar tauu. Pencet aja kertasnya`,
-            initial: { x: -0.36, y: 1.1, z: 0, rx: 0, ry: Math.PI, rz: 1.6 },
+            initial: { x: -0.1, y: 1, z: 0, rx: 0, ry: Math.PI, rz: 1.6 },
             renderInstantly: false,
             autoStart: true,
             fontSize: 80,
@@ -601,6 +614,26 @@ class ThreeApp {
       this.camera.aspect = window.innerWidth / window.innerHeight;
       this.camera.updateProjectionMatrix();
       this.renderer.setSize(window.innerWidth, window.innerHeight);
+
+      const targetZ =
+        CONFIG.camera.getZ() +
+        (this.state.isBookOpen ? CONFIG.camera.zoomOffset() : 0);
+      gsap.to(this.camera.position, {
+        z: targetZ,
+        duration: 0.5,
+        ease: "power2.out",
+      });
+
+      if (this.state.model) {
+        const targetX = this.state.isBookOpen
+          ? CONFIG.model.openOffset
+          : CONFIG.model.closedOffset;
+        gsap.to(this.state.model.position, {
+          x: targetX,
+          duration: 0.5,
+          ease: "power2.out",
+        });
+      }
     });
   }
 
