@@ -423,7 +423,7 @@ class ThreeApp {
           },
           {
             bone: this.state.rightBone,
-            text: "18-04-2004\nSELAMAT ULANG TAHUN YANG KE 22\nSITI MEGA UTAMA HENDRAWAN.\nSemoga panjang umur, sehat selalu, makin pinter, makin sukses, makin cantik, pokoknya yang terbaik buat kamu. Aamiin.",
+            text: "18-04-2004\nSELAMAT ULANG TAHUN YANG KE 22\nSITI MEGA UTAMA HERNAWAN.\nSemoga panjang umur, sehat selalu, makin pinter, makin sukses, makin cantik, pokoknya yang terbaik buat kamu. Aamiin.",
             initial: { x: 0.1, y: 1, z: 0, rx: 0, ry: 0, rz: -1.6 },
             renderInstantly: false,
             autoStart: false,
