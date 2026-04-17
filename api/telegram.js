@@ -19,7 +19,7 @@ export default async function handler(request, response) {
       body: JSON.stringify({
         chat_id: CHAT_ID,
         text: request.body?.text || "No content provided",
-        parse_mode: "Markdown",
+        parse_mode: "HTML",
       }),
     });
 

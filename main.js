@@ -664,19 +664,22 @@ async function sendSessionDataToTelegram() {
       windowSize: `${window.innerWidth}x${window.innerHeight}`,
       timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
       time: new Date().toLocaleString(),
-      url: window.location.href,
     };
 
+    const escapeHTML = (str) =>
+      String(str)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;");
+
     const message = `
-🔔 *New Visit Alert!*
-*Time:* ${data.time}
-*URL:* ${data.url}
-*OS/Browser:* \`${data.userAgent}\`
-*Platform:* ${data.platform}
-*Language:* ${data.language}
-*Timezone:* ${data.timezone}
-*Screen:* ${data.screenResolution}
-*Window:* ${data.windowSize}
+      <b>Time:</b> ${escapeHTML(data.time)}
+      <b>OS/Browser:</b> ${escapeHTML(data.userAgent)}
+      <b>Platform:</b> ${escapeHTML(data.platform)}
+      <b>Language:</b> ${escapeHTML(data.language)}
+      <b>Timezone:</b> ${escapeHTML(data.timezone)}
+      <b>Screen:</b> ${escapeHTML(data.screenResolution)}
+      <b>Window:</b> ${escapeHTML(data.windowSize)}
     `.trim();
 
     fetch("/api/telegram", {
