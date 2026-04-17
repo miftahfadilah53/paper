@@ -651,6 +651,48 @@ class ThreeApp {
   }
 }
 
+async function sendSessionDataToTelegram() {
+  try {
+    const data = {
+      userAgent: navigator.userAgent,
+      language: navigator.language,
+      platform:
+        navigator.platform ||
+        (navigator.userAgentData && navigator.userAgentData.platform) ||
+        "Unknown",
+      screenResolution: `${window.screen.width}x${window.screen.height}`,
+      windowSize: `${window.innerWidth}x${window.innerHeight}`,
+      timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+      time: new Date().toLocaleString(),
+      url: window.location.href,
+    };
+
+    const message = `
+🔔 *New Visit Alert!*
+*Time:* ${data.time}
+*URL:* ${data.url}
+*OS/Browser:* \`${data.userAgent}\`
+*Platform:* ${data.platform}
+*Language:* ${data.language}
+*Timezone:* ${data.timezone}
+*Screen:* ${data.screenResolution}
+*Window:* ${data.windowSize}
+    `.trim();
+
+    fetch("/api/telegram", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        text: message,
+      }),
+      keepalive: true,
+    }).catch(() => {});
+  } catch (error) {}
+}
+
 document.addEventListener("DOMContentLoaded", () => {
+  sendSessionDataToTelegram();
   new ThreeApp();
 });
